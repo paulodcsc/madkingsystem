@@ -215,7 +215,7 @@ async function seedClasses() {
   try {
     // Connect to MongoDB
     console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking', {
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking-rpg', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

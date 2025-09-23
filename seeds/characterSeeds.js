@@ -1,46 +1,35 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
 const Character = require('../models/Character');
+const Class = require('../models/Class');
+const Race = require('../models/Race');
+const Origin = require('../models/Origin');
 
 /**
- * Sample character data for seeding the database
+ * Sample character template data for seeding the database
+ * This will be transformed to reference actual Race and Class documents
  */
 
-const characters = [
+const characterTemplates = [
   {
     name: "Lyra Thornfield",
-    race: {
-      name: "Human",
-      ability: "Adaptable: reroll once/day"
-    },
-    class: {
-      name: "Warrior",
-      bonuses: [
-        {"type": "STR", "value": 2},
-        {"type": "AC", "value": 2}
-      ],
-      skills: ["Athletics", "Intimidation"]
-    },
-    subclass: {
-      name: "Berserker",
-      bonuses: [{"type": "STR", "value": 1}],
-      abilities: ["Frenzy: +3 damage, -2 AC for 4 rounds"]
-    },
-    origin: {
-      name: "Farmer",
-      bonuses: [{"type": "STR", "value": 1}],
-      skills: ["Animal Handling"]
-    },
-    extraSkills: ["Stealth", "Occultism"],
+    raceName: "Human",
+    subraceName: "Commoner",
+    className: "Warrior",
+    subclassName: "Berserker",
+    originName: "Farmer",
+    extraSkills: ["stealth", "arcana"],
     stats: {
-      str: 15,
-      dex: 12,
-      int: 10
+      str: 4,
+      dex: 3,
+      int: 2,
+      cha: 3
     },
-    hp: 12,
-    maxHp: 12,
+    level: 3,
+    hp: 25,
+    maxHp: 25,
     ac: 12,
     mana: null,
+    maxMana: null,
     armor: {
       name: "Leather armor",
       acBonus: 2
@@ -48,48 +37,41 @@ const characters = [
     items: [
       {
         name: "Greatsword",
-        requirements: "STR 12",
-        damage: 10,
-        type: "weapon"
+        description: "A well-balanced two-handed sword",
+        quantity: 1,
+        value: 50
+      },
+      {
+        name: "Rations",
+        description: "Travel food for 3 days",
+        quantity: 6,
+        value: 2
       }
     ],
-    currency: 3,
+    currency: 35,
     backstory: "A farmer turned warrior after the Mad King's curse claimed her village, now delving for sigils to buy a cure."
   },
   {
     name: "Kael Shadowstep",
-    race: {
-      name: "Elf",
-      ability: "Keen Senses: advantage on perception checks"
-    },
-    class: {
-      name: "Rogue",
-      bonuses: [
-        {"type": "DEX", "value": 2},
-        {"type": "AC", "value": 1}
-      ],
-      skills: ["Stealth", "Sleight of Hand"]
-    },
-    subclass: {
-      name: "Trickster",
-      bonuses: [{"type": "INT", "value": 1}],
-      abilities: ["Magic Trick: access to 1st circle spells"]
-    },
-    origin: {
-      name: "Street Thief",
-      bonuses: [{"type": "DEX", "value": 1}],
-      skills: ["Lockpicking"]
-    },
-    extraSkills: ["Acrobatics", "Deception"],
+    raceName: "Elf",
+    subraceName: "Wood Elf",
+    className: "Rogue",
+    subclassName: "Trickster",
+    originName: "Street Thief",
+    extraSkills: ["acrobatics", "deception"],
     stats: {
-      str: 10,
-      dex: 16,
-      int: 14
+      str: 2,
+      dex: 5,
+      int: 4,
+      cha: 3
     },
-    hp: 8,
-    maxHp: 8,
+    level: 2,
+    hp: 16,
+    maxHp: 16,
     ac: 14,
-    mana: 8,
+    mana: 12,
+    maxMana: 12,
+    spellcastingAbility: 'int',
     armor: {
       name: "Studded leather",
       acBonus: 3
@@ -97,52 +79,41 @@ const characters = [
     items: [
       {
         name: "Shortsword",
-        requirements: "DEX 10",
-        damage: 6,
-        type: "weapon"
+        description: "A lightweight, nimble blade",
+        quantity: 1,
+        value: 25
       },
       {
         name: "Thieves' Tools",
-        type: "tool"
+        description: "Lockpicks and other tools for bypassing security",
+        quantity: 1,
+        value: 25
       }
     ],
-    currency: 15,
+    currency: 42,
     backstory: "A cunning elf who learned magic on the streets, now using illusion and stealth to survive the Mad King's realm."
   },
   {
     name: "Morgana Darkvein",
-    race: {
-      name: "Human",
-      ability: "Adaptable: reroll once/day"
-    },
-    class: {
-      name: "Wizard",
-      bonuses: [
-        {"type": "INT", "value": 2},
-        {"type": "MANA", "value": 4}
-      ],
-      skills: ["Arcana", "History"]
-    },
-    subclass: {
-      name: "Necromancer",
-      bonuses: [{"type": "INT", "value": 1}],
-      abilities: ["Superior Raise Dead: control 2 undead minions simultaneously"]
-    },
-    origin: {
-      name: "Scholar",
-      bonuses: [{"type": "INT", "value": 1}],
-      skills: ["Research"]
-    },
-    extraSkills: ["Medicine", "Religion"],
+    raceName: "Human",
+    subraceName: "Noble",
+    className: "Wizard",
+    subclassName: "Necromancer",
+    originName: "Scholar",
+    extraSkills: ["nature", "insight"],
     stats: {
-      str: 8,
-      dex: 10,
-      int: 17
+      str: 1,
+      dex: 2,
+      int: 6,
+      cha: 4
     },
-    hp: 6,
-    maxHp: 6,
+    level: 4,
+    hp: 18,
+    maxHp: 18,
     ac: 10,
-    mana: 20,
+    mana: 32,
+    maxMana: 32,
+    spellcastingAbility: 'int',
     armor: {
       name: "Robes",
       acBonus: 0
@@ -150,53 +121,46 @@ const characters = [
     items: [
       {
         name: "Staff of Bones",
-        requirements: "INT 12",
-        damage: 4,
-        type: "weapon",
-        special: "+2 to necromancy spells"
+        description: "A gnarled staff topped with a skull, humming with necromantic energy",
+        quantity: 1,
+        value: 200
       },
       {
         name: "Spellbook",
-        type: "tool"
+        description: "A leather-bound tome filled with arcane formulas",
+        quantity: 1,
+        value: 100
+      },
+      {
+        name: "Component Pouch",
+        description: "Contains various spell components",
+        quantity: 1,
+        value: 25
       }
     ],
-    currency: 25,
+    currency: 125,
     backstory: "A brilliant scholar who turned to necromancy to understand death itself, seeking forbidden knowledge in the Mad King's domain."
   },
   {
     name: "Bjorn Ironbeard",
-    race: {
-      name: "Dwarf",
-      ability: "Hardy: +2 to poison and disease saves"
-    },
-    class: {
-      name: "Warrior",
-      bonuses: [
-        {"type": "STR", "value": 2},
-        {"type": "AC", "value": 2}
-      ],
-      skills: ["Athletics", "Intimidation"]
-    },
-    subclass: {
-      name: "Berserker",
-      bonuses: [{"type": "STR", "value": 1}],
-      abilities: ["Frenzy: +3 damage, -2 AC for 4 rounds"]
-    },
-    origin: {
-      name: "Blacksmith",
-      bonuses: [{"type": "STR", "value": 1}],
-      skills: ["Smithing"]
-    },
-    extraSkills: ["Survival", "Perception"],
+    raceName: "Dwarf",
+    subraceName: "Mountain Dwarf",
+    className: "Warrior",
+    subclassName: "Berserker",
+    originName: "Soldier",
+    extraSkills: ["endurance", "investigation"],
     stats: {
-      str: 16,
-      dex: 10,
-      int: 12
+      str: 6,
+      dex: 2,
+      int: 3,
+      cha: 2
     },
-    hp: 16,
-    maxHp: 16,
+    level: 3,
+    hp: 42,
+    maxHp: 42,
     ac: 15,
     mana: null,
+    maxMana: null,
     armor: {
       name: "Chain mail",
       acBonus: 4
@@ -204,85 +168,204 @@ const characters = [
     items: [
       {
         name: "Warhammer",
-        requirements: "STR 14",
-        damage: 12,
-        type: "weapon"
+        description: "A heavy dwarven warhammer with intricate runes",
+        quantity: 1,
+        value: 75
       },
       {
         name: "Shield",
-        acBonus: 1,
-        type: "armor"
+        description: "A sturdy iron shield bearing the smith's mark",
+        quantity: 1,
+        value: 30
+      },
+      {
+        name: "Smith's Tools",
+        description: "Hammer, tongs, and other blacksmithing implements",
+        quantity: 1,
+        value: 20
       }
     ],
-    currency: 8,
+    currency: 68,
     backstory: "A dwarven blacksmith whose forge was consumed by the Mad King's curse, now wielding hammer and rage in equal measure."
   }
 ];
 
 /**
- * Connect to MongoDB and seed the characters
+ * Seeds the database with characters that reference Race and Class models
  */
 async function seedCharacters() {
   try {
-    // Connect to MongoDB
-    console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log('Connected to MongoDB successfully');
-
-    // Clear existing characters (optional - comment out if you want to keep existing data)
-    console.log('Clearing existing characters...');
+    console.log('Starting character seeding...');
+    
+    // Clear existing characters
     await Character.deleteMany({});
-    console.log('Existing characters cleared');
+    console.log('✅ Cleared existing characters');
 
-    // Insert new characters
-    console.log('Seeding characters...');
-    const createdCharacters = await Character.insertMany(characters);
-    console.log(`Successfully seeded ${createdCharacters.length} characters:`);
+    // Get all races, classes, and origins from database
+    const races = await Race.find({});
+    const classes = await Class.find({});
+    const origins = await Origin.find({});
     
-    createdCharacters.forEach((character, index) => {
-      console.log(`${index + 1}. ${character.name} (${character.race.name} ${character.class.name}/${character.subclass.name})`);
-      console.log(`   Stats: STR ${character.stats.str}, DEX ${character.stats.dex}, INT ${character.stats.int}`);
-      console.log(`   HP: ${character.hp}/${character.maxHp}, AC: ${character.ac}${character.mana ? `, Mana: ${character.mana}` : ''}`);
-      console.log(`   Origin: ${character.origin.name}`);
-      console.log(`   Currency: ${character.currency} gold`);
-      console.log('');
-    });
+    if (races.length === 0) {
+      throw new Error('No races found in database. Please run race seeds first.');
+    }
+    
+    if (classes.length === 0) {
+      throw new Error('No classes found in database. Please run class seeds first.');
+    }
 
-    console.log('\n--- Character Seed Summary ---');
-    console.log(`Total characters seeded: ${createdCharacters.length}`);
-    
-    // Group by class
-    const classCounts = {};
-    createdCharacters.forEach(char => {
-      classCounts[char.class.name] = (classCounts[char.class.name] || 0) + 1;
-    });
-    
-    console.log('\nCharacters by Class:');
-    Object.entries(classCounts).forEach(([className, count]) => {
-      console.log(`  ${className}: ${count} characters`);
-    });
+    if (origins.length === 0) {
+      throw new Error('No origins found in database. Please run origin seeds first.');
+    }
 
-    // Group by race
-    const raceCounts = {};
-    createdCharacters.forEach(char => {
-      raceCounts[char.race.name] = (raceCounts[char.race.name] || 0) + 1;
-    });
+    console.log(`Found ${races.length} races, ${classes.length} classes, and ${origins.length} origins in database`);
+
+    // Create characters
+    const createdCharacters = [];
     
-    console.log('\nCharacters by Race:');
-    Object.entries(raceCounts).forEach(([raceName, count]) => {
-      console.log(`  ${raceName}: ${count} characters`);
-    });
+    for (const template of characterTemplates) {
+      try {
+        // Find the race and class documents
+        const race = races.find(r => r.name === template.raceName);
+        const characterClass = classes.find(c => c.name === template.className);
+        
+        if (!race) {
+          console.warn(`⚠️ Race '${template.raceName}' not found for character '${template.name}', skipping...`);
+          continue;
+        }
+        
+        if (!characterClass) {
+          console.warn(`⚠️ Class '${template.className}' not found for character '${template.name}', skipping...`);
+          continue;
+        }
+
+        // Find subrace if specified
+        let subrace = null;
+        if (template.subraceName) {
+          subrace = race.subraces.find(sr => sr.name === template.subraceName);
+          if (!subrace) {
+            console.warn(`⚠️ Subrace '${template.subraceName}' not found for race '${template.raceName}', using base race only`);
+          }
+        }
+
+        // Find subclass if specified
+        let subclass = { name: '', abilities: [], bonuses: [] };
+        if (template.subclassName) {
+          const foundSubclass = characterClass.subclasses.find(sc => sc.name === template.subclassName);
+          if (foundSubclass) {
+            subclass = {
+              name: foundSubclass.name,
+              abilities: foundSubclass.abilities || [],
+              bonuses: foundSubclass.bonuses || []
+            };
+          } else {
+            console.warn(`⚠️ Subclass '${template.subclassName}' not found for class '${template.className}', using base class only`);
+          }
+        }
+
+        // Find origin
+        const origin = origins.find(o => o.name === template.originName);
+        if (!origin) {
+          console.warn(`⚠️ Origin '${template.originName}' not found for character '${template.name}', skipping...`);
+          continue;
+        }
+
+        // Build character data
+        const characterData = {
+          name: template.name,
+          race: {
+            raceId: race._id,
+            name: race.name,
+            subraceName: subrace ? subrace.name : '',
+            bonuses: [], // Character-specific bonuses from race
+            abilities: [] // Character-specific abilities from race
+          },
+          class: {
+            classId: characterClass._id,
+            name: characterClass.name,
+            bonuses: [], // Character-specific bonuses from class
+            skills: [] // Character-specific skills from class
+          },
+          subclass: subclass,
+          originId: origin._id,
+          extraSkills: template.extraSkills,
+          stats: template.stats,
+          level: template.level,
+          hp: template.hp,
+          maxHp: template.maxHp,
+          ac: template.ac,
+          mana: template.mana,
+          maxMana: template.maxMana,
+          spellcastingAbility: template.spellcastingAbility || '',
+          armor: template.armor,
+          items: template.items,
+          currency: template.currency,
+          backstory: template.backstory
+        };
+
+        // Create the character
+        const character = new Character(characterData);
+        await character.save();
+
+        // Populate origin for display purposes
+        await character.populate('originId');
+        createdCharacters.push(character);
+        
+        console.log(`✅ Created character: ${character.name} (${race.name}${subrace ? ` ${subrace.name}` : ''} ${characterClass.name}${subclass.name ? `/${subclass.name}` : ''})`);
+        
+      } catch (charError) {
+        console.error(`❌ Error creating character '${template.name}':`, charError.message);
+      }
+    }
+
+    console.log(`\n✅ Successfully created ${createdCharacters.length} characters`);
+    
+    // Display summary
+    if (createdCharacters.length > 0) {
+      console.log('\n--- Character Summary ---');
+      
+      createdCharacters.forEach((character, index) => {
+        console.log(`${index + 1}. ${character.name}`);
+        console.log(`   Race: ${character.race.name}${character.race.subraceName ? ` (${character.race.subraceName})` : ''}`);
+        console.log(`   Class: ${character.class.name}${character.subclass.name ? `/${character.subclass.name}` : ''}`);
+        console.log(`   Level: ${character.level}`);
+        console.log(`   Stats: STR ${character.stats.str}, DEX ${character.stats.dex}, INT ${character.stats.int}, CHA ${character.stats.cha}`);
+        console.log(`   HP: ${character.hp}/${character.maxHp}, AC: ${character.ac}${character.mana ? `, Mana: ${character.mana}/${character.maxMana}` : ''}`);
+        console.log(`   Origin: ${character.originId.name}`);
+        console.log(`   Currency: ${character.currency} MKS`);
+        console.log('');
+      });
+
+      // Group by race
+      const raceCounts = {};
+      createdCharacters.forEach(char => {
+        const raceKey = char.race.subraceName ? `${char.race.name} (${char.race.subraceName})` : char.race.name;
+        raceCounts[raceKey] = (raceCounts[raceKey] || 0) + 1;
+      });
+      
+      console.log('Characters by Race:');
+      Object.entries(raceCounts).forEach(([raceName, count]) => {
+        console.log(`  ${raceName}: ${count}`);
+      });
+
+      // Group by class
+      const classCounts = {};
+      createdCharacters.forEach(char => {
+        const classKey = char.subclass.name ? `${char.class.name}/${char.subclass.name}` : char.class.name;
+        classCounts[classKey] = (classCounts[classKey] || 0) + 1;
+      });
+      
+      console.log('\nCharacters by Class:');
+      Object.entries(classCounts).forEach(([className, count]) => {
+        console.log(`  ${className}: ${count}`);
+      });
+    }
+    
+    return createdCharacters;
 
   } catch (error) {
-    console.error('Error seeding characters:', error);
-  } finally {
-    // Close the connection
-    await mongoose.connection.close();
-    console.log('Database connection closed');
-    process.exit(0);
+    console.error('❌ Error seeding characters:', error);
+    throw error;
   }
 }
 
@@ -290,7 +373,24 @@ async function seedCharacters() {
  * Run the seed function if this file is executed directly
  */
 if (require.main === module) {
-  seedCharacters();
+  const mongoose = require('mongoose');
+  
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking-rpg', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  })
+    .then(() => {
+      console.log('Connected to MongoDB');
+      return seedCharacters();
+    })
+    .then(() => {
+      console.log('Character seeding completed');
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      process.exit(1);
+    });
 }
 
-module.exports = { seedCharacters, characters };
+module.exports = { seedCharacters, characterTemplates };

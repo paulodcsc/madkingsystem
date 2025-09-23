@@ -5,6 +5,12 @@ const mongoose = require('mongoose');
  */
 
 // Sub-schemas for nested objects
+const BonusSchema = new mongoose.Schema({
+  type: { type: String, required: true, trim: true },
+  value: { type: Number, required: true },
+  description: { type: String, default: '', trim: true }
+}, { _id: false });
+
 const AbilitySchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   description: { type: String, default: '', trim: true },
@@ -12,15 +18,17 @@ const AbilitySchema = new mongoose.Schema({
   level: { type: Number, required: true },
 }, { _id: false });
 
-const RaceSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
-  ability: [AbilitySchema] // Changed from single string to array of abilities
-}, { _id: false });
-
-const BonusSchema = new mongoose.Schema({
-  type: { type: String, required: true, trim: true },
-  value: { type: Number, required: true },
-  description: { type: String, default: '', trim: true }
+// Reference to the Race model instead of embedding
+const RaceRefSchema = new mongoose.Schema({
+  raceId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Race', 
+    required: true 
+  },
+  name: { type: String, required: true, trim: true }, // Denormalized for quick access
+  subraceName: { type: String, default: '', trim: true }, // Selected subrace (if any)
+  bonuses: [BonusSchema], // Character-specific bonuses from this race
+  abilities: [AbilitySchema] // Character-specific abilities from this race
 }, { _id: false });
 
 // Reference to the Class model instead of embedding
@@ -61,11 +69,17 @@ const SubclassSchema = new mongoose.Schema({
   abilities: [AbilitySchema] // Changed to use AbilitySchema
 }, { _id: false });
 
-const OriginSchema = new mongoose.Schema({
-  name: { type: String, default: '', trim: true },
-  bonuses: [BonusSchema],
-  abilities: [AbilitySchema], // Changed to use AbilitySchema
-  skills: [{ type: String, trim: true }]
+// Reference to the Origin model instead of embedding
+const OriginRefSchema = new mongoose.Schema({
+  originId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Origin', 
+    required: true 
+  },
+  name: { type: String, required: true, trim: true }, // Denormalized for quick access
+  bonuses: [BonusSchema], // Character-specific bonuses from this origin
+  abilities: [AbilitySchema], // Character-specific abilities from this origin
+  skills: [{ type: String, trim: true }] // Character-specific skills from this origin
 }, { _id: false });
 
 const StatsSchema = new mongoose.Schema({
@@ -127,7 +141,7 @@ const CharacterSchema = new mongoose.Schema({
   
   // Basic character info
   race: { 
-    type: RaceSchema, 
+    type: RaceRefSchema, 
     required: true 
   },
   
@@ -142,8 +156,8 @@ const CharacterSchema = new mongoose.Schema({
   },
   
   origin: { 
-    type: OriginSchema, 
-    default: () => ({}) 
+    type: OriginRefSchema, 
+    required: true 
   },
   
   // Extra skills beyond class/origin
@@ -267,21 +281,32 @@ CharacterSchema.virtual('allSkills').get(function() {
 });
 
 CharacterSchema.virtual('allAbilities').get(function() {
-  const raceAbilities = this.race.ability || [];
+  const raceAbilities = this.race.abilities || [];
   const subclassAbilities = this.subclass.abilities || [];
   const originAbilities = this.origin.abilities || [];
   
   // Note: Class abilities now come from the populated Class model
-  // You'll need to populate the class field to access abilities
+  // Race abilities now come from the populated Race model  
+  // Origin abilities now come from the populated Origin model
   const classAbilities = this.populated('class.classId') && this.class.classId.abilities 
     ? this.class.classId.abilities 
     : [];
   
+  const populatedRaceAbilities = this.populated('race.raceId') && this.race.raceId.abilities 
+    ? this.race.raceId.abilities 
+    : [];
+  
+  const populatedOriginAbilities = this.populated('origin.originId') && this.origin.originId.abilities 
+    ? this.origin.originId.abilities 
+    : [];
+  
   return [
     ...raceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
+    ...populatedRaceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
     ...classAbilities.map(ability => ({ ...ability.toObject(), source: 'class' })),
     ...subclassAbilities.map(ability => ({ ...ability.toObject(), source: 'subclass' })),
-    ...originAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
+    ...originAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' })),
+    ...populatedOriginAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
   ];
 });
 
@@ -418,20 +443,32 @@ CharacterSchema.methods.getAllSkills = function() {
 };
 
 CharacterSchema.methods.getAllAbilities = function() {
-  const raceAbilities = this.race.ability || [];
+  const raceAbilities = this.race.abilities || [];
   const subclassAbilities = this.subclass.abilities || [];
   const originAbilities = this.origin.abilities || [];
   
   // Note: Class abilities now come from the populated Class model
+  // Race abilities now come from the populated Race model
+  // Origin abilities now come from the populated Origin model
   const classAbilities = this.populated('class.classId') && this.class.classId.abilities 
     ? this.class.classId.abilities 
     : [];
   
+  const populatedRaceAbilities = this.populated('race.raceId') && this.race.raceId.abilities 
+    ? this.race.raceId.abilities 
+    : [];
+  
+  const populatedOriginAbilities = this.populated('origin.originId') && this.origin.originId.abilities 
+    ? this.origin.originId.abilities 
+    : [];
+  
   return [
     ...raceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
+    ...populatedRaceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
     ...classAbilities.map(ability => ({ ...ability.toObject(), source: 'class' })),
     ...subclassAbilities.map(ability => ({ ...ability.toObject(), source: 'subclass' })),
-    ...originAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
+    ...originAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' })),
+    ...populatedOriginAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
   ];
 };
 
@@ -740,16 +777,24 @@ CharacterSchema.statics.findByName = function(name) {
   return this.findOne({ name: new RegExp(name, 'i') });
 };
 
-CharacterSchema.statics.findWithClassData = function(query = {}) {
-  return this.find(query).populate('class.classId');
+CharacterSchema.statics.findWithFullData = function(query = {}) {
+  return this.find(query).populate('class.classId').populate('race.raceId').populate('origin.originId');
 };
 
-CharacterSchema.statics.findByClass = function(className) {
-  return this.find({ 'class.name': new RegExp(className, 'i') });
+CharacterSchema.statics.findByOrigin = function(originName) {
+  return this.find({ 'origin.name': new RegExp(originName, 'i') });
 };
 
-CharacterSchema.statics.findByClassId = function(classId) {
-  return this.find({ 'class.classId': classId });
+CharacterSchema.statics.findByOriginId = function(originId) {
+  return this.find({ 'origin.originId': originId });
+};
+
+CharacterSchema.statics.findByRace = function(raceName) {
+  return this.find({ 'race.name': new RegExp(raceName, 'i') });
+};
+
+CharacterSchema.statics.findByRaceId = function(raceId) {
+  return this.find({ 'race.raceId': raceId });
 };
 
 CharacterSchema.statics.findBySpell = function(spellId) {
@@ -769,14 +814,22 @@ CharacterSchema.statics.findBySpellCircle = function(circle) {
   return this.find({ 'spells.circle': circle });
 };
 
-CharacterSchema.statics.findByRace = function(raceName) {
-  return this.find({ 'race.name': new RegExp(raceName, 'i') });
+CharacterSchema.statics.findByClass = function(className) {
+  return this.find({ 'class.name': new RegExp(className, 'i') });
+};
+
+CharacterSchema.statics.findByClassId = function(classId) {
+  return this.find({ 'class.classId': classId });
 };
 
 // Index for faster queries
 CharacterSchema.index({ name: 1 });
 CharacterSchema.index({ 'class.name': 1 });
+CharacterSchema.index({ 'class.classId': 1 });
 CharacterSchema.index({ 'race.name': 1 });
+CharacterSchema.index({ 'race.raceId': 1 });
+CharacterSchema.index({ 'origin.name': 1 });
+CharacterSchema.index({ 'origin.originId': 1 });
 CharacterSchema.index({ createdAt: -1 });
 CharacterSchema.index({ 'spells.spellId': 1 });
 CharacterSchema.index({ 'spells.circle': 1 });
