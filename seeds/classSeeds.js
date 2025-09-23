@@ -213,14 +213,6 @@ const classes = [
  */
 async function seedClasses() {
   try {
-    // Connect to MongoDB
-    console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking-rpg', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log('Connected to MongoDB successfully');
-
     // Clear existing classes (optional - comment out if you want to keep existing data)
     console.log('Clearing existing classes...');
     await Class.deleteMany({});
@@ -256,13 +248,11 @@ async function seedClasses() {
     console.log(`Total subclass abilities: ${totalSubclassAbilities}`);
     console.log(`Grand total abilities: ${totalMainAbilities + totalSubclassAbilities}`);
 
+    return createdClasses;
+
   } catch (error) {
     console.error('Error seeding classes:', error);
-  } finally {
-    // Close the connection
-    await mongoose.connection.close();
-    console.log('Database connection closed');
-    process.exit(0);
+    throw error;
   }
 }
 
@@ -270,7 +260,31 @@ async function seedClasses() {
  * Run the seed function if this file is executed directly
  */
 if (require.main === module) {
-  seedClasses();
+  async function runClassSeeds() {
+    try {
+      // Connect to MongoDB
+      console.log('Connecting to MongoDB...');
+      await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking-rpg', {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      });
+      console.log('Connected to MongoDB successfully');
+
+      await seedClasses();
+      
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      // Close the connection
+      await mongoose.connection.close();
+      console.log('Database connection closed');
+      process.exit(0);
+    }
+  }
+  
+  runClassSeeds();
 }
+
+module.exports = { seedClasses, classes };
 
 module.exports = { seedClasses, classes };

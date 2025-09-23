@@ -287,7 +287,13 @@ async function seedCharacters() {
             skills: [] // Character-specific skills from class
           },
           subclass: subclass,
-          originId: origin._id,
+          origin: {
+            originId: origin._id,
+            name: origin.name,
+            bonuses: [], // Character-specific bonuses from origin
+            abilities: [], // Character-specific abilities from origin
+            skills: [] // Character-specific skills from origin
+          },
           extraSkills: template.extraSkills,
           stats: template.stats,
           level: template.level,
@@ -308,7 +314,7 @@ async function seedCharacters() {
         await character.save();
 
         // Populate origin for display purposes
-        await character.populate('originId');
+        await character.populate('origin.originId');
         createdCharacters.push(character);
         
         console.log(`✅ Created character: ${character.name} (${race.name}${subrace ? ` ${subrace.name}` : ''} ${characterClass.name}${subclass.name ? `/${subclass.name}` : ''})`);
@@ -331,7 +337,7 @@ async function seedCharacters() {
         console.log(`   Level: ${character.level}`);
         console.log(`   Stats: STR ${character.stats.str}, DEX ${character.stats.dex}, INT ${character.stats.int}, CHA ${character.stats.cha}`);
         console.log(`   HP: ${character.hp}/${character.maxHp}, AC: ${character.ac}${character.mana ? `, Mana: ${character.mana}/${character.maxMana}` : ''}`);
-        console.log(`   Origin: ${character.originId.name}`);
+        console.log(`   Origin: ${character.origin.name}`);
         console.log(`   Currency: ${character.currency} MKS`);
         console.log('');
       });

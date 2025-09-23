@@ -12,13 +12,13 @@ const spells = [
     description: "A bright streak flashes from your pointing finger to a point you choose within range and then blossoms with a low roar into an explosion of flame.",
     circle: 3,
     manaCost: 15,
-    school: "Elementalism", // Adjusted to match schema enum
+    school: "Dragon Church", // Fixed to match schema enum
     castingTime: "1 action",
     range: "150 feet",
     duration: "Instantaneous",
     components: {
       verbal: true,
-      gesture: true, // Adjusted to match schema (was 'somatic')
+      gesture: true,
       focus: false,
       cost: "a tiny ball of bat guano and sulfur"
     },
@@ -33,7 +33,7 @@ const spells = [
     description: "A warm, golden light emanates from your hands, closing wounds and mending broken bones with divine energy.",
     circle: 2,
     manaCost: 8,
-    school: "Restoration",
+    school: "Sacred Veil",
     castingTime: "1 action",
     range: "Touch",
     duration: "Instantaneous",
@@ -54,7 +54,7 @@ const spells = [
     description: "Three darts of magical force streak from your fingertips toward targets within range, each dart hitting automatically.",
     circle: 1,
     manaCost: 3,
-    school: "Thaumaturgy",
+    school: "Astromancy",
     castingTime: "1 action",
     range: "120 feet",
     duration: "Instantaneous",
@@ -75,7 +75,7 @@ const spells = [
     description: "For the duration, you sense the presence of magic within 30 feet of you and can identify the school of magic if present.",
     circle: 1,
     manaCost: 2,
-    school: "Divination",
+    school: "Astromancy",
     castingTime: "1 action",
     range: "Self",
     duration: "10 minutes",
@@ -96,7 +96,7 @@ const spells = [
     description: "A creature you touch becomes invisible until the spell ends. The spell ends if the target attacks or casts a spell.",
     circle: 2,
     manaCost: 6,
-    school: "Illusion",
+    school: "Slumbering",
     castingTime: "1 action",
     range: "Touch",
     duration: "1 hour",
@@ -117,7 +117,7 @@ const spells = [
     description: "A stroke of lightning forming a line 100 feet long and 5 feet wide blasts out from you in a direction you choose.",
     circle: 3,
     manaCost: 12,
-    school: "Elementalism",
+    school: "Dragon Church",
     castingTime: "1 action",
     range: "Self (100-foot line)",
     duration: "Instantaneous",
@@ -138,7 +138,7 @@ const spells = [
     description: "You gain the service of a familiar, a spirit that takes an animal form you choose. Your familiar acts independently but obeys your commands.",
     circle: 1,
     manaCost: 4,
-    school: "Conjuration",
+    school: "Astromancy",
     castingTime: "1 hour",
     range: "10 feet",
     duration: "Instantaneous",
@@ -159,7 +159,7 @@ const spells = [
     description: "Choose one creature, object, or magical effect within range. Any spell of 3rd circle or lower on the target ends.",
     circle: 3,
     manaCost: 10,
-    school: "Alteration",
+    school: "Astromancy",
     castingTime: "1 action",
     range: "120 feet",
     duration: "Instantaneous",
@@ -180,7 +180,7 @@ const spells = [
     description: "You grant the semblance of life and intelligence to a corpse, allowing you to ask it up to five questions.",
     circle: 3,
     manaCost: 8,
-    school: "Necromancy",
+    school: "Deathweaving",
     castingTime: "1 action",
     range: "10 feet",
     duration: "10 minutes",
@@ -201,7 +201,7 @@ const spells = [
     description: "Grasping weeds and vines sprout from the ground in a 20-foot square starting from a point within range, turning the area into difficult terrain.",
     circle: 1,
     manaCost: 3,
-    school: "Druidism",
+    school: "Rootbound",
     castingTime: "1 action",
     range: "90 feet",
     duration: "1 minute",
@@ -224,14 +224,6 @@ const spells = [
  */
 async function seedSpells() {
   try {
-    // Connect to MongoDB
-    console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking-rpg', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log('Connected to MongoDB successfully');
-
     // Clear existing spells (optional - comment out if you want to keep existing data)
     console.log('Clearing existing spells...');
     await Spell.deleteMany({});
@@ -263,13 +255,11 @@ async function seedSpells() {
       console.log(`  ${group._id}: ${group.count} spells`);
     });
 
+    return createdSpells;
+
   } catch (error) {
     console.error('Error seeding spells:', error);
-  } finally {
-    // Close the connection
-    await mongoose.connection.close();
-    console.log('Database connection closed');
-    process.exit(0);
+    throw error;
   }
 }
 
@@ -277,7 +267,29 @@ async function seedSpells() {
  * Run the seed function if this file is executed directly
  */
 if (require.main === module) {
-  seedSpells();
+  async function runSpellSeeds() {
+    try {
+      // Connect to MongoDB
+      console.log('Connecting to MongoDB...');
+      await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking-rpg', {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      });
+      console.log('Connected to MongoDB successfully');
+
+      await seedSpells();
+      
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      // Close the connection
+      await mongoose.connection.close();
+      console.log('Database connection closed');
+      process.exit(0);
+    }
+  }
+  
+  runSpellSeeds();
 }
 
 module.exports = { seedSpells, spells };
