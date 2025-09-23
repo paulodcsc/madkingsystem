@@ -1,11 +1,13 @@
-const Class = require('./models/Class');
+const mongoose = require('mongoose');
+require('dotenv').config();
+const Class = require('../models/Class');
 
 /**
  * Sample class data for seeding the database
  * This includes Warrior, Rogue, and Wizard classes with their subclasses
  */
 
-const sampleClasses = [
+const classes = [
   {
     name: "Warrior",
     description: "Masters of combat, warriors excel in physical prowess and battlefield tactics.",
@@ -207,30 +209,68 @@ const sampleClasses = [
 ];
 
 /**
- * Function to seed the database with sample class data
- * This should be run once to populate the classes collection
+ * Connect to MongoDB and seed the classes
  */
 async function seedClasses() {
   try {
-    // Clear existing classes
-    await Class.deleteMany({});
-    
-    // Insert sample classes
-    const createdClasses = await Class.insertMany(sampleClasses);
-    
-    console.log(`Successfully seeded ${createdClasses.length} classes:`);
-    createdClasses.forEach(cls => {
-      console.log(`- ${cls.name} with ${cls.subclasses.length} subclasses`);
+    // Connect to MongoDB
+    console.log('Connecting to MongoDB...');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/madking', {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     });
+    console.log('Connected to MongoDB successfully');
+
+    // Clear existing classes (optional - comment out if you want to keep existing data)
+    console.log('Clearing existing classes...');
+    await Class.deleteMany({});
+    console.log('Existing classes cleared');
+
+    // Insert new classes
+    console.log('Seeding classes...');
+    const createdClasses = await Class.insertMany(classes);
+    console.log(`Successfully seeded ${createdClasses.length} classes:`);
     
-    return createdClasses;
+    createdClasses.forEach((cls, index) => {
+      console.log(`${index + 1}. ${cls.name} - ${cls.description}`);
+      console.log(`   HP/Level: ${cls.hpBonusPerLevel}, Mana/Level: ${cls.manaBonusPerLevel}`);
+      console.log(`   Subclasses: ${cls.subclasses.map(sub => sub.name).join(', ')}`);
+      console.log(`   Main Abilities: ${cls.abilities.length}`);
+      cls.subclasses.forEach(sub => {
+        console.log(`   ${sub.name} Abilities: ${sub.abilities.length}`);
+      });
+      console.log('');
+    });
+
+    console.log('\n--- Class Seed Summary ---');
+    console.log(`Total classes seeded: ${createdClasses.length}`);
+    
+    const totalSubclasses = createdClasses.reduce((sum, cls) => sum + cls.subclasses.length, 0);
+    console.log(`Total subclasses seeded: ${totalSubclasses}`);
+    
+    const totalMainAbilities = createdClasses.reduce((sum, cls) => sum + cls.abilities.length, 0);
+    const totalSubclassAbilities = createdClasses.reduce((sum, cls) => 
+      sum + cls.subclasses.reduce((subSum, sub) => subSum + sub.abilities.length, 0), 0);
+    
+    console.log(`Total main class abilities: ${totalMainAbilities}`);
+    console.log(`Total subclass abilities: ${totalSubclassAbilities}`);
+    console.log(`Grand total abilities: ${totalMainAbilities + totalSubclassAbilities}`);
+
   } catch (error) {
     console.error('Error seeding classes:', error);
-    throw error;
+  } finally {
+    // Close the connection
+    await mongoose.connection.close();
+    console.log('Database connection closed');
+    process.exit(0);
   }
 }
 
-module.exports = {
-  sampleClasses,
-  seedClasses
-};
+/**
+ * Run the seed function if this file is executed directly
+ */
+if (require.main === module) {
+  seedClasses();
+}
+
+module.exports = { seedClasses, classes };
