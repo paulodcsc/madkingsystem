@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 class Database {
   static async connect() {
     try {
-      const connectionString = process.env.MONGODB_URI || 'mongodb://localhost:27017/madking-rpg';
+      const connectionString = process.env.MONGODB_URI;
       
       // MongoDB connection options
       const options = {
