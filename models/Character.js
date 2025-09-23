@@ -23,11 +23,36 @@ const BonusSchema = new mongoose.Schema({
   description: { type: String, default: '', trim: true }
 }, { _id: false });
 
-const ClassSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
-  bonuses: [BonusSchema],
-  abilities: [AbilitySchema], // Changed to use AbilitySchema
-  skills: [{ type: String, trim: true }]
+// Reference to the Class model instead of embedding
+const ClassRefSchema = new mongoose.Schema({
+  classId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Class', 
+    required: true 
+  },
+  name: { type: String, required: true, trim: true }, // Denormalized for quick access
+  bonuses: [BonusSchema], // Character-specific bonuses from this class
+  skills: [{ type: String, trim: true }] // Character-specific skills from this class
+}, { _id: false });
+
+// Schema for character spells
+const CharacterSpellSchema = new mongoose.Schema({
+  spellId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Spell',
+    required: true
+  },
+  name: { type: String, required: true, trim: true }, // Denormalized for quick access
+  circle: { type: Number, required: true, min: 1, max: 5 }, // Spell level (1st-5th circle)
+  manaCost: { type: Number, required: true, min: 0 }, // Denormalized for quick access
+  isKnown: { type: Boolean, default: true }, // Whether the character knows this spell
+  isPrepared: { type: Boolean, default: false }, // Whether the spell is prepared for use
+  source: { 
+    type: String, 
+    enum: ['class', 'subclass', 'item', 'learned', 'racial'],
+    default: 'learned'
+  }, // How the character acquired this spell
+  notes: { type: String, default: '', trim: true } // Character-specific notes about the spell
 }, { _id: false });
 
 const SubclassSchema = new mongoose.Schema({
@@ -107,7 +132,7 @@ const CharacterSchema = new mongoose.Schema({
   },
   
   class: { 
-    type: ClassSchema, 
+    type: ClassRefSchema, 
     required: true 
   },
   
@@ -170,6 +195,19 @@ const CharacterSchema = new mongoose.Schema({
     default: null,
     min: 0
   },
+  maxMana: {
+    type: Number,
+    default: null,
+    min: 0
+  },
+  
+  // Spell system
+  spells: [CharacterSpellSchema],
+  spellcastingAbility: {
+    type: String,
+    enum: ['str', 'dex', 'int', 'cha', ''],
+    default: ''
+  },
   
   // Equipment
   armor: { 
@@ -217,9 +255,14 @@ CharacterSchema.virtual('allSkills').get(function() {
 
 CharacterSchema.virtual('allAbilities').get(function() {
   const raceAbilities = this.race.ability || [];
-  const classAbilities = this.class.abilities || [];
   const subclassAbilities = this.subclass.abilities || [];
   const originAbilities = this.origin.abilities || [];
+  
+  // Note: Class abilities now come from the populated Class model
+  // You'll need to populate the class field to access abilities
+  const classAbilities = this.populated('class.classId') && this.class.classId.abilities 
+    ? this.class.classId.abilities 
+    : [];
   
   return [
     ...raceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
@@ -301,6 +344,40 @@ CharacterSchema.virtual('skillsByStats').get(function() {
   };
 });
 
+// Spell-related virtual fields
+CharacterSchema.virtual('knownSpells').get(function() {
+  return this.spells.filter(spell => spell.isKnown);
+});
+
+CharacterSchema.virtual('preparedSpells').get(function() {
+  return this.spells.filter(spell => spell.isPrepared);
+});
+
+CharacterSchema.virtual('spellsByCircle').get(function() {
+  const spellsByCircle = {
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+    5: []
+  };
+  
+  this.spells.forEach(spell => {
+    if (spellsByCircle[spell.circle]) {
+      spellsByCircle[spell.circle].push(spell);
+    }
+  });
+  
+  return spellsByCircle;
+});
+
+CharacterSchema.virtual('spellcastingModifier').get(function() {
+  if (!this.spellcastingAbility || !this.stats[this.spellcastingAbility]) {
+    return 0;
+  }
+  return this.getStatModifier(this.stats[this.spellcastingAbility]);
+});
+
 // Instance methods
 CharacterSchema.methods.getStatModifier = function(statValue) {
   return Math.floor((statValue - 10) / 2);
@@ -324,9 +401,13 @@ CharacterSchema.methods.getAllSkills = function() {
 
 CharacterSchema.methods.getAllAbilities = function() {
   const raceAbilities = this.race.ability || [];
-  const classAbilities = this.class.abilities || [];
   const subclassAbilities = this.subclass.abilities || [];
   const originAbilities = this.origin.abilities || [];
+  
+  // Note: Class abilities now come from the populated Class model
+  const classAbilities = this.populated('class.classId') && this.class.classId.abilities 
+    ? this.class.classId.abilities 
+    : [];
   
   return [
     ...raceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
@@ -432,12 +513,147 @@ CharacterSchema.methods.getSkillsByAbility = function(abilityScore) {
   }));
 };
 
+// Spell-related instance methods
+CharacterSchema.methods.addSpell = function(spellData) {
+  // Check if spell already exists
+  const existingSpell = this.spells.find(spell => 
+    spell.spellId.toString() === spellData.spellId.toString()
+  );
+  
+  if (existingSpell) {
+    throw new Error('Spell already known');
+  }
+  
+  this.spells.push(spellData);
+  return this;
+};
+
+CharacterSchema.methods.removeSpell = function(spellId) {
+  const index = this.spells.findIndex(spell => 
+    spell.spellId.toString() === spellId.toString()
+  );
+  
+  if (index === -1) {
+    throw new Error('Spell not found');
+  }
+  
+  this.spells.splice(index, 1);
+  return this;
+};
+
+CharacterSchema.methods.prepareSpell = function(spellId) {
+  const spell = this.spells.find(spell => 
+    spell.spellId.toString() === spellId.toString()
+  );
+  
+  if (!spell) {
+    throw new Error('Spell not known');
+  }
+  
+  if (!spell.isKnown) {
+    throw new Error('Cannot prepare unknown spell');
+  }
+  
+  spell.isPrepared = true;
+  return this;
+};
+
+CharacterSchema.methods.unprepareSpell = function(spellId) {
+  const spell = this.spells.find(spell => 
+    spell.spellId.toString() === spellId.toString()
+  );
+  
+  if (!spell) {
+    throw new Error('Spell not found');
+  }
+  
+  spell.isPrepared = false;
+  return this;
+};
+
+CharacterSchema.methods.canCastSpell = function(spellId) {
+  const spell = this.spells.find(spell => 
+    spell.spellId.toString() === spellId.toString()
+  );
+  
+  if (!spell || !spell.isKnown || !spell.isPrepared) {
+    return { canCast: false, reason: 'Spell not prepared' };
+  }
+  
+  if (this.mana === null || this.mana < spell.manaCost) {
+    return { canCast: false, reason: 'Insufficient mana' };
+  }
+  
+  return { canCast: true };
+};
+
+CharacterSchema.methods.castSpell = function(spellId) {
+  const castCheck = this.canCastSpell(spellId);
+  if (!castCheck.canCast) {
+    throw new Error(castCheck.reason);
+  }
+  
+  const spell = this.spells.find(spell => 
+    spell.spellId.toString() === spellId.toString()
+  );
+  
+  this.mana -= spell.manaCost;
+  return {
+    spell: spell,
+    remainingMana: this.mana
+  };
+};
+
+CharacterSchema.methods.getSpellsByCircle = function(circle) {
+  return this.spells.filter(spell => spell.circle === circle);
+};
+
+CharacterSchema.methods.getKnownSpells = function() {
+  return this.spells.filter(spell => spell.isKnown);
+};
+
+CharacterSchema.methods.getPreparedSpells = function() {
+  return this.spells.filter(spell => spell.isPrepared);
+};
+
+CharacterSchema.methods.getSpellcastingModifier = function() {
+  if (!this.spellcastingAbility || !this.stats[this.spellcastingAbility]) {
+    return 0;
+  }
+  return this.getStatModifier(this.stats[this.spellcastingAbility]);
+};
+
+CharacterSchema.methods.getSpellAttackBonus = function() {
+  const proficiencyBonus = 2; // Standard proficiency bonus (could be level-based)
+  return this.getSpellcastingModifier() + proficiencyBonus;
+};
+
+CharacterSchema.methods.getSpellSaveDC = function() {
+  const baseDC = 8;
+  const proficiencyBonus = 2; // Standard proficiency bonus (could be level-based)
+  return baseDC + proficiencyBonus + this.getSpellcastingModifier();
+};
+
 // Pre-save middleware
 CharacterSchema.pre('save', function(next) {
   // Ensure maxHp is at least equal to hp
   if (this.hp > this.maxHp) {
     this.maxHp = this.hp;
   }
+  
+  // Ensure maxMana is at least equal to mana if both are set
+  if (this.mana !== null && this.maxMana !== null && this.mana > this.maxMana) {
+    this.maxMana = this.mana;
+  }
+  
+  // Sort spells by circle and name for consistency
+  this.spells.sort((a, b) => {
+    if (a.circle !== b.circle) {
+      return a.circle - b.circle;
+    }
+    return a.name.localeCompare(b.name);
+  });
+  
   next();
 });
 
@@ -446,8 +662,33 @@ CharacterSchema.statics.findByName = function(name) {
   return this.findOne({ name: new RegExp(name, 'i') });
 };
 
+CharacterSchema.statics.findWithClassData = function(query = {}) {
+  return this.find(query).populate('class.classId');
+};
+
 CharacterSchema.statics.findByClass = function(className) {
   return this.find({ 'class.name': new RegExp(className, 'i') });
+};
+
+CharacterSchema.statics.findByClassId = function(classId) {
+  return this.find({ 'class.classId': classId });
+};
+
+CharacterSchema.statics.findBySpell = function(spellId) {
+  return this.find({ 'spells.spellId': spellId });
+};
+
+CharacterSchema.statics.findSpellcasters = function() {
+  return this.find({ 
+    $and: [
+      { spellcastingAbility: { $ne: '' } },
+      { 'spells.0': { $exists: true } }
+    ]
+  });
+};
+
+CharacterSchema.statics.findBySpellCircle = function(circle) {
+  return this.find({ 'spells.circle': circle });
 };
 
 CharacterSchema.statics.findByRace = function(raceName) {
@@ -459,6 +700,10 @@ CharacterSchema.index({ name: 1 });
 CharacterSchema.index({ 'class.name': 1 });
 CharacterSchema.index({ 'race.name': 1 });
 CharacterSchema.index({ createdAt: -1 });
+CharacterSchema.index({ 'spells.spellId': 1 });
+CharacterSchema.index({ 'spells.circle': 1 });
+CharacterSchema.index({ spellcastingAbility: 1 });
+CharacterSchema.index({ level: 1 });
 
 // Create and export the model
 const Character = mongoose.model('Character', CharacterSchema);
