@@ -201,6 +201,19 @@ const CharacterSchema = new mongoose.Schema({
     min: 0
   },
   
+  // Movement speed
+  baseSpeed: {
+    type: Number,
+    default: 30,
+    min: [0, 'Base speed cannot be negative']
+  },
+  speedModifiers: [{
+    type: { type: String, required: true, trim: true }, // e.g., 'armor', 'spell', 'racial', 'item'
+    value: { type: Number, required: true }, // positive or negative modifier
+    source: { type: String, default: '', trim: true }, // description of the source
+    description: { type: String, default: '', trim: true }
+  }],
+  
   // Spell system
   spells: [CharacterSpellSchema],
   spellcastingAbility: {
@@ -276,6 +289,11 @@ CharacterSchema.virtual('totalAC').get(function() {
   const armorBonus = this.armor.acBonus || 0;
   const classACBonus = this.class.bonuses?.find(b => b.type === 'AC')?.value || 0;
   return this.ac + armorBonus + classACBonus;
+});
+
+CharacterSchema.virtual('totalSpeed').get(function() {
+  const speedModifierSum = this.speedModifiers.reduce((sum, modifier) => sum + modifier.value, 0);
+  return Math.max(0, this.baseSpeed + speedModifierSum); // Speed cannot be negative
 });
 
 // Skills-related virtual fields
@@ -634,6 +652,66 @@ CharacterSchema.methods.getSpellSaveDC = function() {
   return baseDC + proficiencyBonus + this.getSpellcastingModifier();
 };
 
+// Speed-related instance methods
+CharacterSchema.methods.getTotalSpeed = function() {
+  const speedModifierSum = this.speedModifiers.reduce((sum, modifier) => sum + modifier.value, 0);
+  return Math.max(0, this.baseSpeed + speedModifierSum); // Speed cannot be negative
+};
+
+CharacterSchema.methods.addSpeedModifier = function(modifierData) {
+  // Check if a modifier with the same type and source already exists
+  const existingModifier = this.speedModifiers.find(modifier => 
+    modifier.type === modifierData.type && modifier.source === modifierData.source
+  );
+  
+  if (existingModifier) {
+    // Update the existing modifier
+    existingModifier.value = modifierData.value;
+    existingModifier.description = modifierData.description || existingModifier.description;
+  } else {
+    // Add new modifier
+    this.speedModifiers.push(modifierData);
+  }
+  
+  return this;
+};
+
+CharacterSchema.methods.removeSpeedModifier = function(type, source) {
+  const index = this.speedModifiers.findIndex(modifier => 
+    modifier.type === type && modifier.source === source
+  );
+  
+  if (index === -1) {
+    throw new Error(`Speed modifier of type '${type}' from source '${source}' not found`);
+  }
+  
+  this.speedModifiers.splice(index, 1);
+  return this;
+};
+
+CharacterSchema.methods.getSpeedModifiersByType = function(type) {
+  return this.speedModifiers.filter(modifier => modifier.type === type);
+};
+
+CharacterSchema.methods.hasSpeedModifier = function(type, source) {
+  return this.speedModifiers.some(modifier => 
+    modifier.type === type && modifier.source === source
+  );
+};
+
+CharacterSchema.methods.getSpeedBreakdown = function() {
+  return {
+    baseSpeed: this.baseSpeed,
+    modifiers: this.speedModifiers.map(modifier => ({
+      type: modifier.type,
+      value: modifier.value,
+      source: modifier.source,
+      description: modifier.description
+    })),
+    totalSpeed: this.getTotalSpeed()
+  };
+};
+
 // Pre-save middleware
 CharacterSchema.pre('save', function(next) {
   // Ensure maxHp is at least equal to hp
@@ -704,6 +782,7 @@ CharacterSchema.index({ 'spells.spellId': 1 });
 CharacterSchema.index({ 'spells.circle': 1 });
 CharacterSchema.index({ spellcastingAbility: 1 });
 CharacterSchema.index({ level: 1 });
+CharacterSchema.index({ baseSpeed: 1 });
 
 // Create and export the model
 const Character = mongoose.model('Character', CharacterSchema);

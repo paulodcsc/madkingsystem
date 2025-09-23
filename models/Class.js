@@ -72,6 +72,14 @@ const ClassSchema = new mongoose.Schema({
     default: 0
   },
   
+  // Base movement speed for this class (in feet per turn)
+  baseSpeed: {
+    type: Number,
+    required: true,
+    min: [0, 'Base speed cannot be negative'],
+    default: 30
+  },
+  
   // Class abilities (odd levels: 1, 3, 5, 7, 9)
   abilities: [ClassAbilitySchema],
   
