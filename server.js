@@ -4,8 +4,11 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const Character = require('./models/Character');
 const Database = require('./config/database');
+
+// Import routes
+const characterRoutes = require('./routes/characterRoutes');
+const classRoutes = require('./routes/classRoutes');
 
 // Initialize Express app
 const app = express();
@@ -27,188 +30,19 @@ app.get('/', (req, res) => {
       'GET /characters/:id': 'Get character by ID',
       'POST /characters': 'Create new character',
       'PUT /characters/:id': 'Update character by ID',
-      'DELETE /characters/:id': 'Delete character by ID'
+      'DELETE /characters/:id': 'Delete character by ID',
+      'GET /classes': 'Get all classes',
+      'GET /classes/:id': 'Get class by ID',
+      'POST /classes': 'Create new class',
+      'PUT /classes/:id': 'Update class by ID',
+      'DELETE /classes/:id': 'Delete class by ID'
     }
   });
 });
 
-// GET /characters - Get all characters
-app.get('/characters', async (req, res) => {
-  try {
-    const characters = await Character.find().sort({ createdAt: -1 });
-    
-    res.json({
-      success: true,
-      count: characters.length,
-      data: characters
-    });
-  } catch (error) {
-    console.error('Error fetching characters:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error while fetching characters',
-      message: error.message
-    });
-  }
-});
-
-// GET /characters/:id - Get character by ID
-app.get('/characters/:id', async (req, res) => {
-  try {
-    const character = await Character.findById(req.params.id);
-    
-    if (!character) {
-      return res.status(404).json({
-        success: false,
-        error: 'Character not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: character
-    });
-  } catch (error) {
-    console.error('Error fetching character:', error);
-    
-    // Handle invalid ObjectId
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid character ID format'
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      error: 'Server error while fetching character',
-      message: error.message
-    });
-  }
-});
-
-// POST /characters - Create new character
-app.post('/characters', async (req, res) => {
-  try {
-    const character = new Character(req.body);
-    
-    // Save to database (validation happens automatically)
-    const savedCharacter = await character.save();
-    
-    res.status(201).json({
-      success: true,
-      message: 'Character created successfully',
-      data: savedCharacter
-    });
-  } catch (error) {
-    console.error('Error creating character:', error);
-    
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        errors: errors
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      error: 'Server error while creating character',
-      message: error.message
-    });
-  }
-});
-
-// PUT /characters/:id - Update character by ID
-app.put('/characters/:id', async (req, res) => {
-  try {
-    const character = await Character.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { 
-        new: true, // Return the updated document
-        runValidators: true // Run schema validators on update
-      }
-    );
-    
-    if (!character) {
-      return res.status(404).json({
-        success: false,
-        error: 'Character not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Character updated successfully',
-      data: character
-    });
-  } catch (error) {
-    console.error('Error updating character:', error);
-    
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        errors: errors
-      });
-    }
-    
-    // Handle invalid ObjectId
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid character ID format'
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      error: 'Server error while updating character',
-      message: error.message
-    });
-  }
-});
-
-// DELETE /characters/:id - Delete character by ID
-app.delete('/characters/:id', async (req, res) => {
-  try {
-    const character = await Character.findByIdAndDelete(req.params.id);
-    
-    if (!character) {
-      return res.status(404).json({
-        success: false,
-        error: 'Character not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Character deleted successfully',
-      data: character
-    });
-  } catch (error) {
-    console.error('Error deleting character:', error);
-    
-    // Handle invalid ObjectId
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid character ID format'
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      error: 'Server error while deleting character',
-      message: error.message
-    });
-  }
-});
+// Mount routes
+app.use('/characters', characterRoutes);
+app.use('/classes', classRoutes);
 
 // Handle 404 for unknown routes
 app.use('*', (req, res) => {
