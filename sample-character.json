@@ -1,0 +1,49 @@
+{
+  "name": "Lyra Thornfield",
+  "race": {
+    "name": "Human",
+    "ability": "Adaptable: reroll once/day"
+  },
+  "class": {
+    "name": "Warrior",
+    "bonuses": [
+      {"type": "STR", "value": 2},
+      {"type": "AC", "value": 2}
+    ],
+    "skills": ["Athletics", "Intimidation"]
+  },
+  "subclass": {
+    "name": "Dark Knight",
+    "bonuses": [{"type": "STR", "value": 1}],
+    "abilities": ["Shadow Strike: 8 damage, costs 4 HP"]
+  },
+  "origin": {
+    "name": "Farmer",
+    "bonuses": [{"type": "STR", "value": 1}],
+    "skills": ["Animal Handling"]
+  },
+  "extraSkills": ["Stealth", "Occultism"],
+  "stats": {
+    "str": 15,
+    "dex": 12,
+    "int": 10
+  },
+  "hp": 12,
+  "maxHp": 12,
+  "ac": 12,
+  "mana": null,
+  "armor": {
+    "name": "Leather armor",
+    "acBonus": 2
+  },
+  "items": [
+    {
+      "name": "Greatsword",
+      "requirements": "STR 12",
+      "damage": 10,
+      "type": "weapon"
+    }
+  ],
+  "currency": 3,
+  "backstory": "A farmer turned warrior after the Mad King's curse claimed her village, now delving for sigils to buy a cure."
+}
