@@ -9,6 +9,10 @@ const Database = require('./config/database');
 // Import routes
 const characterRoutes = require('./routes/characterRoutes');
 const classRoutes = require('./routes/classRoutes');
+const itemRoutes = require('./routes/itemRoutes');
+const originRoutes = require('./routes/originRoutes');
+const raceRoutes = require('./routes/raceRoutes');
+const spellRoutes = require('./routes/spellRoutes');
 
 // Initialize Express app
 const app = express();
@@ -35,7 +39,27 @@ app.get('/', (req, res) => {
       'GET /classes/:id': 'Get class by ID',
       'POST /classes': 'Create new class',
       'PUT /classes/:id': 'Update class by ID',
-      'DELETE /classes/:id': 'Delete class by ID'
+      'DELETE /classes/:id': 'Delete class by ID',
+      'GET /items': 'Get all items',
+      'GET /items/:id': 'Get item by ID',
+      'POST /items': 'Create new item',
+      'PUT /items/:id': 'Update item by ID',
+      'DELETE /items/:id': 'Delete item by ID',
+      'GET /origins': 'Get all origins',
+      'GET /origins/:id': 'Get origin by ID',
+      'POST /origins': 'Create new origin',
+      'PUT /origins/:id': 'Update origin by ID',
+      'DELETE /origins/:id': 'Delete origin by ID',
+      'GET /races': 'Get all races',
+      'GET /races/:id': 'Get race by ID',
+      'POST /races': 'Create new race',
+      'PUT /races/:id': 'Update race by ID',
+      'DELETE /races/:id': 'Delete race by ID',
+      'GET /spells': 'Get all spells',
+      'GET /spells/:id': 'Get spell by ID',
+      'POST /spells': 'Create new spell',
+      'PUT /spells/:id': 'Update spell by ID',
+      'DELETE /spells/:id': 'Delete spell by ID'
     }
   });
 });
@@ -43,6 +67,10 @@ app.get('/', (req, res) => {
 // Mount routes
 app.use('/characters', characterRoutes);
 app.use('/classes', classRoutes);
+app.use('/items', itemRoutes);
+app.use('/origins', originRoutes);
+app.use('/races', raceRoutes);
+app.use('/spells', spellRoutes);
 
 // Handle 404 for unknown routes
 app.use('*', (req, res) => {

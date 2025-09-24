@@ -286,5 +286,3 @@ if (require.main === module) {
 }
 
 module.exports = { seedClasses, classes };
-
-module.exports = { seedClasses, classes };

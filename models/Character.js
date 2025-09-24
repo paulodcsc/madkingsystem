@@ -18,41 +18,23 @@ const AbilitySchema = new mongoose.Schema({
   level: { type: Number, required: true },
 }, { _id: false });
 
-// Reference to the Race model instead of embedding
+// Race reference - ObjectId + selected subrace name (character-specific data)
 const RaceRefSchema = new mongoose.Schema({
   raceId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Race', 
     required: true 
   },
-  name: { type: String, required: true, trim: true }, // Denormalized for quick access
-  subraceName: { type: String, default: '', trim: true }, // Selected subrace (if any)
-  bonuses: [BonusSchema], // Character-specific bonuses from this race
-  abilities: [AbilitySchema] // Character-specific abilities from this race
+  subraceName: { type: String, default: '', trim: true } // Selected subrace (if any)
 }, { _id: false });
 
-// Reference to the Class model instead of embedding
-const ClassRefSchema = new mongoose.Schema({
-  classId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Class', 
-    required: true 
-  },
-  name: { type: String, required: true, trim: true }, // Denormalized for quick access
-  bonuses: [BonusSchema], // Character-specific bonuses from this class
-  skills: [{ type: String, trim: true }] // Character-specific skills from this class
-}, { _id: false });
-
-// Schema for character spells
+// Simplified Character Spell Schema - only reference to spell and character-specific properties
 const CharacterSpellSchema = new mongoose.Schema({
   spellId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Spell',
     required: true
   },
-  name: { type: String, required: true, trim: true }, // Denormalized for quick access
-  circle: { type: Number, required: true, min: 1, max: 5 }, // Spell level (1st-5th circle)
-  manaCost: { type: Number, required: true, min: 0 }, // Denormalized for quick access
   isKnown: { type: Boolean, default: true }, // Whether the character knows this spell
   isPrepared: { type: Boolean, default: false }, // Whether the spell is prepared for use
   source: { 
@@ -69,18 +51,7 @@ const SubclassSchema = new mongoose.Schema({
   abilities: [AbilitySchema] // Changed to use AbilitySchema
 }, { _id: false });
 
-// Reference to the Origin model instead of embedding
-const OriginRefSchema = new mongoose.Schema({
-  originId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Origin', 
-    required: true 
-  },
-  name: { type: String, required: true, trim: true }, // Denormalized for quick access
-  bonuses: [BonusSchema], // Character-specific bonuses from this origin
-  abilities: [AbilitySchema], // Character-specific abilities from this origin
-  skills: [{ type: String, trim: true }] // Character-specific skills from this origin
-}, { _id: false });
+
 
 const StatsSchema = new mongoose.Schema({
   str: { type: Number, required: true, min: 1, max: 6, default: 1 },
@@ -146,7 +117,8 @@ const CharacterSchema = new mongoose.Schema({
   },
   
   class: { 
-    type: ClassRefSchema, 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Class',
     required: true 
   },
   
@@ -156,7 +128,8 @@ const CharacterSchema = new mongoose.Schema({
   },
   
   origin: { 
-    type: OriginRefSchema, 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Origin',
     required: true 
   },
   
@@ -268,51 +241,68 @@ CharacterSchema.virtual('statModifiers').get(function() {
   return {
     str: Math.floor((this.stats.str - 10) / 2),
     dex: Math.floor((this.stats.dex - 10) / 2),
-    int: Math.floor((this.stats.int - 10) / 2)
+    int: Math.floor((this.stats.int - 10) / 2),
+    cha: Math.floor((this.stats.cha - 10) / 2)
   };
 });
 
 CharacterSchema.virtual('allSkills').get(function() {
-  const classSkills = this.class.skills || [];
-  const originSkills = this.origin.skills || [];
+  const classSkills = this.populated('class') && this.class?.skills 
+    ? this.class.skills 
+    : [];
+  const originSkills = this.populated('origin') && this.origin?.skills 
+    ? this.origin.skills 
+    : [];
+  const raceSkills = this.populated('race.raceId') && this.race?.raceId?.skills 
+    ? this.race.raceId.skills 
+    : [];
+  const subraceSkills = this.populated('race.raceId') && this.race?.raceId && this.race.subraceName && this.race.raceId.getAllSkills
+    ? this.race.raceId.getAllSkills(this.race.subraceName) 
+    : [];
   const extraSkills = this.extraSkills || [];
   
-  return [...new Set([...classSkills, ...originSkills, ...extraSkills])];
+  return [...new Set([...classSkills, ...originSkills, ...raceSkills, ...subraceSkills, ...extraSkills])];
 });
 
 CharacterSchema.virtual('allAbilities').get(function() {
-  const raceAbilities = this.race.abilities || [];
-  const subclassAbilities = this.subclass.abilities || [];
-  const originAbilities = this.origin.abilities || [];
-  
-  // Note: Class abilities now come from the populated Class model
-  // Race abilities now come from the populated Race model  
-  // Origin abilities now come from the populated Origin model
-  const classAbilities = this.populated('class.classId') && this.class.classId.abilities 
-    ? this.class.classId.abilities 
+  const raceAbilities = this.populated('race.raceId') && this.race?.raceId?.abilities 
+    ? this.race.raceId.abilities.map(ability => ({ ...ability.toObject(), source: 'race' }))
     : [];
   
-  const populatedRaceAbilities = this.populated('race.raceId') && this.race.raceId.abilities 
-    ? this.race.raceId.abilities 
+  const subraceAbilities = this.populated('race.raceId') && this.race?.raceId && this.race.subraceName && this.race.raceId.getSubrace
+    ? this.race.raceId.getSubrace(this.race.subraceName)?.abilities?.map(ability => ({ ...ability.toObject(), source: 'subrace' })) || []
     : [];
   
-  const populatedOriginAbilities = this.populated('origin.originId') && this.origin.originId.abilities 
-    ? this.origin.originId.abilities 
+  const classAbilities = this.populated('class') && this.class?.abilities 
+    ? this.class.abilities.map(ability => ({ ...ability.toObject(), source: 'class' }))
+    : [];
+  
+  const subclassAbilities = this.subclass && this.subclass.abilities 
+    ? this.subclass.abilities.map(ability => ({ ...ability.toObject(), source: 'subclass' }))
+    : [];
+  
+  const originAbilities = this.populated('origin') && this.origin?.abilities 
+    ? this.origin.abilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
     : [];
   
   return [
-    ...raceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
-    ...populatedRaceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
-    ...classAbilities.map(ability => ({ ...ability.toObject(), source: 'class' })),
-    ...subclassAbilities.map(ability => ({ ...ability.toObject(), source: 'subclass' })),
-    ...originAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' })),
-    ...populatedOriginAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
+    ...raceAbilities,
+    ...subraceAbilities,
+    ...classAbilities,
+    ...subclassAbilities,
+    ...originAbilities
   ];
 });
 
 CharacterSchema.virtual('totalAC').get(function() {
-  const armorBonus = this.armor.acBonus || 0;
-  const classACBonus = this.class.bonuses?.find(b => b.type === 'AC')?.value || 0;
+  const armorBonus = this.armor?.acBonus || 0;
+  let classACBonus = 0;
+  
+  if (this.populated('class') && this.class?.bonuses) {
+    const acBonus = this.class.bonuses.find(b => b.type === 'AC');
+    classACBonus = acBonus ? acBonus.value : 0;
+  }
+  
   return this.ac + armorBonus + classACBonus;
 });
 
@@ -345,7 +335,8 @@ CharacterSchema.virtual('proficientSkills').get(function() {
     arcana: 'int',
     lore: 'int',
     investigation: 'int',
-    nature: 'int'
+    nature: 'int',
+    insight: 'int'
   };
   
   for (const [skill, ability] of Object.entries(skillMap)) {
@@ -382,7 +373,8 @@ CharacterSchema.virtual('skillsByStats').get(function() {
       arcana: this.skills.arcana,
       lore: this.skills.lore,
       investigation: this.skills.investigation,
-      nature: this.skills.nature
+      nature: this.skills.nature,
+      insight: this.skills.insight
     }
   };
 });
@@ -406,8 +398,11 @@ CharacterSchema.virtual('spellsByCircle').get(function() {
   };
   
   this.spells.forEach(spell => {
-    if (spellsByCircle[spell.circle]) {
-      spellsByCircle[spell.circle].push(spell);
+    if (this.populated('spells.spellId') && spell.spellId && spell.spellId.circle) {
+      const circle = spell.spellId.circle;
+      if (spellsByCircle[circle]) {
+        spellsByCircle[circle].push(spell);
+      }
     }
   });
   
@@ -430,51 +425,68 @@ CharacterSchema.methods.getStatModifiers = function() {
   return {
     str: this.getStatModifier(this.stats.str),
     dex: this.getStatModifier(this.stats.dex),
-    int: this.getStatModifier(this.stats.int)
+    int: this.getStatModifier(this.stats.int),
+    cha: this.getStatModifier(this.stats.cha)
   };
 };
 
 CharacterSchema.methods.getAllSkills = function() {
-  const classSkills = this.class.skills || [];
-  const originSkills = this.origin.skills || [];
+  const classSkills = this.populated('class') && this.class?.skills 
+    ? this.class.skills 
+    : [];
+  const originSkills = this.populated('origin') && this.origin?.skills 
+    ? this.origin.skills 
+    : [];
+  const raceSkills = this.populated('race.raceId') && this.race?.raceId?.skills 
+    ? this.race.raceId.skills 
+    : [];
+  const subraceSkills = this.populated('race.raceId') && this.race?.raceId && this.race.subraceName && this.race.raceId.getAllSkills
+    ? this.race.raceId.getAllSkills(this.race.subraceName) 
+    : [];
   const extraSkills = this.extraSkills || [];
   
-  return [...new Set([...classSkills, ...originSkills, ...extraSkills])];
+  return [...new Set([...classSkills, ...originSkills, ...raceSkills, ...subraceSkills, ...extraSkills])];
 };
 
 CharacterSchema.methods.getAllAbilities = function() {
-  const raceAbilities = this.race.abilities || [];
-  const subclassAbilities = this.subclass.abilities || [];
-  const originAbilities = this.origin.abilities || [];
-  
-  // Note: Class abilities now come from the populated Class model
-  // Race abilities now come from the populated Race model
-  // Origin abilities now come from the populated Origin model
-  const classAbilities = this.populated('class.classId') && this.class.classId.abilities 
-    ? this.class.classId.abilities 
+  const raceAbilities = this.populated('race.raceId') && this.race?.raceId?.abilities 
+    ? this.race.raceId.abilities.map(ability => ({ ...ability.toObject(), source: 'race' }))
     : [];
   
-  const populatedRaceAbilities = this.populated('race.raceId') && this.race.raceId.abilities 
-    ? this.race.raceId.abilities 
+  const subraceAbilities = this.populated('race.raceId') && this.race?.raceId && this.race.subraceName && this.race.raceId.getSubrace
+    ? this.race.raceId.getSubrace(this.race.subraceName)?.abilities?.map(ability => ({ ...ability.toObject(), source: 'subrace' })) || []
     : [];
   
-  const populatedOriginAbilities = this.populated('origin.originId') && this.origin.originId.abilities 
-    ? this.origin.originId.abilities 
+  const classAbilities = this.populated('class') && this.class?.abilities 
+    ? this.class.abilities.map(ability => ({ ...ability.toObject(), source: 'class' }))
+    : [];
+  
+  const subclassAbilities = this.subclass && this.subclass.abilities 
+    ? this.subclass.abilities.map(ability => ({ ...ability.toObject(), source: 'subclass' }))
+    : [];
+  
+  const originAbilities = this.populated('origin') && this.origin?.abilities 
+    ? this.origin.abilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
     : [];
   
   return [
-    ...raceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
-    ...populatedRaceAbilities.map(ability => ({ ...ability.toObject(), source: 'race' })),
-    ...classAbilities.map(ability => ({ ...ability.toObject(), source: 'class' })),
-    ...subclassAbilities.map(ability => ({ ...ability.toObject(), source: 'subclass' })),
-    ...originAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' })),
-    ...populatedOriginAbilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
+    ...raceAbilities,
+    ...subraceAbilities,
+    ...classAbilities,
+    ...subclassAbilities,
+    ...originAbilities
   ];
 };
 
 CharacterSchema.methods.getTotalAC = function() {
-  const armorBonus = this.armor.acBonus || 0;
-  const classACBonus = this.class.bonuses?.find(b => b.type === 'AC')?.value || 0;
+  const armorBonus = this.armor?.acBonus || 0;
+  let classACBonus = 0;
+  
+  if (this.populated('class') && this.class?.bonuses) {
+    const acBonus = this.class.bonuses.find(b => b.type === 'AC');
+    classACBonus = acBonus ? acBonus.value : 0;
+  }
+  
   return this.ac + armorBonus + classACBonus;
 };
 
@@ -488,7 +500,7 @@ CharacterSchema.methods.setSkillProficiency = function(skillName, proficient = t
     'heavyWeapons', 'muscle', 'athletics', 'endurance',
     'lightWeapons', 'rangedWeapons', 'stealth', 'acrobatics', 'legerdemain',
     'negotiation', 'deception', 'intimidation', 'seduction',
-    'arcana', 'lore', 'investigation', 'nature'
+    'arcana', 'lore', 'investigation', 'nature', 'insight'
   ];
   
   if (!validSkills.includes(skillName)) {
@@ -504,7 +516,7 @@ CharacterSchema.methods.getSkillModifier = function(skillName) {
     heavyWeapons: 'str', muscle: 'str', athletics: 'str', endurance: 'str',
     lightWeapons: 'dex', rangedWeapons: 'dex', stealth: 'dex', acrobatics: 'dex', legerdemain: 'dex',
     negotiation: 'cha', deception: 'cha', intimidation: 'cha', seduction: 'cha',
-    arcana: 'int', lore: 'int', investigation: 'int', nature: 'int'
+    arcana: 'int', lore: 'int', investigation: 'int', nature: 'int', insight: 'int'
   };
   
   const abilityScore = skillAbilityMap[skillName];
@@ -536,7 +548,7 @@ CharacterSchema.methods.getProficientSkills = function() {
     'heavyWeapons', 'muscle', 'athletics', 'endurance',
     'lightWeapons', 'rangedWeapons', 'stealth', 'acrobatics', 'legerdemain',
     'negotiation', 'deception', 'intimidation', 'seduction',
-    'arcana', 'lore', 'investigation', 'nature'
+    'arcana', 'lore', 'investigation', 'nature', 'insight'
   ];
   
   skillNames.forEach(skill => {
@@ -553,7 +565,7 @@ CharacterSchema.methods.getSkillsByAbility = function(abilityScore) {
     str: ['heavyWeapons', 'muscle', 'athletics', 'endurance'],
     dex: ['lightWeapons', 'rangedWeapons', 'stealth', 'acrobatics', 'legerdemain'],
     cha: ['negotiation', 'deception', 'intimidation', 'seduction'],
-    int: ['arcana', 'lore', 'investigation', 'nature']
+    int: ['arcana', 'lore', 'investigation', 'nature', 'insight']
   };
   
   const skillList = abilitySkills[abilityScore];
@@ -635,7 +647,14 @@ CharacterSchema.methods.canCastSpell = function(spellId) {
     return { canCast: false, reason: 'Spell not prepared' };
   }
   
-  if (this.mana === null || this.mana < spell.manaCost) {
+  // Get mana cost from populated spell data
+  let manaCost = 0;
+  if (this.populated('spells.spellId') && spell.spellId) {
+    const populatedSpell = spell.spellId;
+    manaCost = populatedSpell.manaCost || 0;
+  }
+  
+  if (this.mana === null || this.mana < manaCost) {
     return { canCast: false, reason: 'Insufficient mana' };
   }
   
@@ -652,7 +671,14 @@ CharacterSchema.methods.castSpell = function(spellId) {
     spell.spellId.toString() === spellId.toString()
   );
   
-  this.mana -= spell.manaCost;
+  // Get mana cost from populated spell data
+  let manaCost = 0;
+  if (this.populated('spells.spellId') && spell.spellId) {
+    const populatedSpell = spell.spellId;
+    manaCost = populatedSpell.manaCost || 0;
+  }
+  
+  this.mana -= manaCost;
   return {
     spell: spell,
     remainingMana: this.mana
@@ -660,7 +686,12 @@ CharacterSchema.methods.castSpell = function(spellId) {
 };
 
 CharacterSchema.methods.getSpellsByCircle = function(circle) {
-  return this.spells.filter(spell => spell.circle === circle);
+  return this.spells.filter(spell => {
+    if (this.populated('spells.spellId') && spell.spellId) {
+      return spell.spellId.circle === circle;
+    }
+    return false; // If not populated, we can't determine the circle
+  });
 };
 
 CharacterSchema.methods.getKnownSpells = function() {
@@ -761,12 +792,9 @@ CharacterSchema.pre('save', function(next) {
     this.maxMana = this.mana;
   }
   
-  // Sort spells by circle and name for consistency
+  // Sort spells by spellId for consistency (we can't access spell data here since it's not populated)
   this.spells.sort((a, b) => {
-    if (a.circle !== b.circle) {
-      return a.circle - b.circle;
-    }
-    return a.name.localeCompare(b.name);
+    return a.spellId.toString().localeCompare(b.spellId.toString());
   });
   
   next();
@@ -778,19 +806,15 @@ CharacterSchema.statics.findByName = function(name) {
 };
 
 CharacterSchema.statics.findWithFullData = function(query = {}) {
-  return this.find(query).populate('class.classId').populate('race.raceId').populate('origin.originId');
-};
-
-CharacterSchema.statics.findByOrigin = function(originName) {
-  return this.find({ 'origin.name': new RegExp(originName, 'i') });
+  return this.find(query)
+    .populate('class')
+    .populate('race.raceId') 
+    .populate('origin')
+    .populate('spells.spellId');
 };
 
 CharacterSchema.statics.findByOriginId = function(originId) {
-  return this.find({ 'origin.originId': originId });
-};
-
-CharacterSchema.statics.findByRace = function(raceName) {
-  return this.find({ 'race.name': new RegExp(raceName, 'i') });
+  return this.find({ origin: originId });
 };
 
 CharacterSchema.statics.findByRaceId = function(raceId) {
@@ -814,25 +838,17 @@ CharacterSchema.statics.findBySpellCircle = function(circle) {
   return this.find({ 'spells.circle': circle });
 };
 
-CharacterSchema.statics.findByClass = function(className) {
-  return this.find({ 'class.name': new RegExp(className, 'i') });
-};
-
 CharacterSchema.statics.findByClassId = function(classId) {
-  return this.find({ 'class.classId': classId });
+  return this.find({ class: classId });
 };
 
 // Index for faster queries
 CharacterSchema.index({ name: 1 });
-CharacterSchema.index({ 'class.name': 1 });
-CharacterSchema.index({ 'class.classId': 1 });
-CharacterSchema.index({ 'race.name': 1 });
+CharacterSchema.index({ class: 1 });
 CharacterSchema.index({ 'race.raceId': 1 });
-CharacterSchema.index({ 'origin.name': 1 });
-CharacterSchema.index({ 'origin.originId': 1 });
+CharacterSchema.index({ origin: 1 });
 CharacterSchema.index({ createdAt: -1 });
 CharacterSchema.index({ 'spells.spellId': 1 });
-CharacterSchema.index({ 'spells.circle': 1 });
 CharacterSchema.index({ spellcastingAbility: 1 });
 CharacterSchema.index({ level: 1 });
 CharacterSchema.index({ baseSpeed: 1 });
