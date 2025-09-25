@@ -1,0 +1,24 @@
+{
+  "name": "Test Warrior",
+  "race": null,
+  "class": null,
+  "origin": null,
+  "subclass": "Berserker",
+  "level": 1,
+  "stats": {
+    "str": 6,
+    "dex": 4,
+    "int": 3,
+    "cha": 2
+  },
+  "skills": {
+    "athletics": true,
+    "intimidation": true,
+    "heavyWeapons": true
+  },
+  "extraSkills": [],
+  "spells": [],
+  "items": [],
+  "backstory": "A fierce warrior ready for adventure.",
+  "currency": 100
+}

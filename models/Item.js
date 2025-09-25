@@ -104,6 +104,48 @@ const ItemSchema = new mongoose.Schema({
     default: 'Miscellaneous'
   },
   
+  // Equipment slot type for equipable items
+  slotType: {
+    type: String,
+    enum: [
+      'mainHand', 'offHand', 'chest', 'boots', 'gloves', 'headgear', 
+      'cape', 'necklace', 'ring', 'other', null
+    ],
+    default: null,
+    validate: {
+      validator: function(value) {
+        // Only certain categories should have slot types
+        const equipableCategories = ['Weapon', 'Armor', 'Shield'];
+        if (equipableCategories.includes(this.category)) {
+          return value !== null && value !== undefined;
+        }
+        return true; // Non-equipable items can have null slot type
+      },
+      message: 'Equipable items must have a slot type'
+    }
+  },
+  
+  // Weapon handling for weapons - how they use hand slots
+  weaponHandling: {
+    type: String,
+    enum: ['one-handed', 'two-handed', 'off-hand-only', null],
+    default: null,
+    validate: {
+      validator: function(value) {
+        // Only weapons should have weapon handling
+        if (this.category === 'Weapon') {
+          return value !== null && value !== undefined;
+        }
+        if (this.category === 'Shield') {
+          // Shields are always off-hand-only
+          return value === 'off-hand-only' || value === null;
+        }
+        return value === null; // Non-weapons shouldn't have weapon handling
+      },
+      message: 'Only weapons and shields should have weapon handling specified'
+    }
+  },
+  
   subtype: {
     type: String,
     default: '',
@@ -357,6 +399,65 @@ ItemSchema.methods.canEquip = function(character) {
   return { canEquip: true };
 };
 
+// New method to check weapon hand requirements
+ItemSchema.methods.getHandRequirement = function() {
+  if (this.category === 'Weapon') {
+    switch (this.weaponHandling) {
+      case 'one-handed':
+        return { hands: 1, canMainHand: true, canOffHand: true };
+      case 'two-handed':
+        return { hands: 2, canMainHand: true, canOffHand: false };
+      case 'off-hand-only':
+        return { hands: 1, canMainHand: false, canOffHand: true };
+      default:
+        return { hands: 1, canMainHand: true, canOffHand: true }; // Default to one-handed
+    }
+  }
+  
+  if (this.category === 'Shield') {
+    return { hands: 1, canMainHand: false, canOffHand: true };
+  }
+  
+  return { hands: 0, canMainHand: false, canOffHand: false }; // Not a weapon or shield
+};
+
+// Method to check if this item can be equipped in a specific slot
+ItemSchema.methods.canEquipInSlot = function(slotName) {
+  const handReq = this.getHandRequirement();
+  
+  if (slotName === 'mainHand') {
+    return handReq.canMainHand;
+  }
+  
+  if (slotName === 'offHand') {
+    return handReq.canOffHand;
+  }
+  
+  // For other slots, check if slotType matches
+  return this.slotType === slotName;
+};
+
+// Method to get all compatible slots for this item
+ItemSchema.methods.getCompatibleSlots = function() {
+  const slots = [];
+  const handReq = this.getHandRequirement();
+  
+  if (handReq.canMainHand) {
+    slots.push('mainHand');
+  }
+  
+  if (handReq.canOffHand) {
+    slots.push('offHand');
+  }
+  
+  // Add non-hand slots
+  if (this.slotType && !['mainHand', 'offHand'].includes(this.slotType)) {
+    slots.push(this.slotType);
+  }
+  
+  return slots;
+};
+
 ItemSchema.methods.getBonusByType = function(bonusType) {
   return this.bonuses.filter(bonus => bonus.type === bonusType);
 };
@@ -534,6 +635,42 @@ ItemSchema.pre('save', function(next) {
   // Auto-assign armor category for items with armorType
   if (this.armorType && this.armorType !== '' && !['Armor', 'Shield'].includes(this.category)) {
     this.category = this.armorType === 'Shield' ? 'Shield' : 'Armor';
+  }
+  
+  // Auto-assign weapon handling based on weapon type and category
+  if (this.category === 'Weapon' && !this.weaponHandling) {
+    // Auto-assign weapon handling based on weapon type
+    switch (this.weaponType) {
+      case 'Heavy':
+        this.weaponHandling = 'two-handed';
+        this.slotType = 'mainHand';
+        break;
+      case 'Light':
+        this.weaponHandling = 'one-handed';
+        this.slotType = 'mainHand';
+        break;
+      case 'Ranged':
+        this.weaponHandling = 'two-handed'; // Bows typically require both hands
+        this.slotType = 'mainHand';
+        break;
+      case 'Staff':
+        this.weaponHandling = 'two-handed';
+        this.slotType = 'mainHand';
+        break;
+      case 'Wand':
+        this.weaponHandling = 'one-handed';
+        this.slotType = 'mainHand';
+        break;
+      default:
+        this.weaponHandling = 'one-handed';
+        this.slotType = 'mainHand';
+    }
+  }
+  
+  // Auto-assign shield handling
+  if (this.category === 'Shield') {
+    this.weaponHandling = 'off-hand-only';
+    this.slotType = 'offHand';
   }
   
   next();

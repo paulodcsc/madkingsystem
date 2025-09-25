@@ -11,6 +11,8 @@ const itemData = [
     name: 'Iron Sword',
     description: 'A well-balanced blade forged from quality iron. Reliable and effective in combat.',
     category: 'Weapon',
+    slotType: 'mainHand',
+    weaponHandling: 'one-handed',
     subtype: 'One-Handed Sword',
     rarity: 'Common',
     baseValue: 25,
@@ -19,6 +21,9 @@ const itemData = [
     weaponType: 'Light',
     baseDamage: 6,
     damageType: 'Physical',
+    bonuses: [
+      { type: 'Damage', value: 6, description: 'Base weapon damage' }
+    ],
     requirements: [
       { type: 'STR', value: 3, description: 'Requires moderate strength to wield effectively' }
     ],
@@ -29,6 +34,8 @@ const itemData = [
     name: 'War Hammer',
     description: 'A massive two-handed hammer designed for crushing armor and bones alike.',
     category: 'Weapon',
+    slotType: 'mainHand',
+    weaponHandling: 'two-handed',
     subtype: 'Two-Handed Hammer',
     rarity: 'Common',
     baseValue: 40,
@@ -37,6 +44,9 @@ const itemData = [
     weaponType: 'Heavy',
     baseDamage: 10,
     damageType: 'Physical',
+    bonuses: [
+      { type: 'Damage', value: 10, description: 'Base weapon damage' }
+    ],
     requirements: [
       { type: 'STR', value: 4, description: 'Requires significant strength to wield' }
     ],
@@ -47,6 +57,8 @@ const itemData = [
     name: 'Elven Longbow',
     description: 'A masterwork bow carved from ancient heartwood, favored by elven rangers.',
     category: 'Weapon',
+    slotType: 'mainHand',
+    weaponHandling: 'two-handed',
     subtype: 'Longbow',
     rarity: 'Uncommon',
     baseValue: 75,
@@ -68,6 +80,8 @@ const itemData = [
     name: 'Staff of Flames',
     description: 'A gnarled staff topped with a fire opal that crackles with magical energy.',
     category: 'Weapon',
+    slotType: 'mainHand',
+    weaponHandling: 'two-handed',
     subtype: 'Magical Staff',
     rarity: 'Rare',
     baseValue: 200,
@@ -80,7 +94,7 @@ const itemData = [
       { type: 'INT', value: 4, description: 'Requires magical knowledge to attune' }
     ],
     bonuses: [
-      { type: 'Damage', value: 3, description: 'Fire magic enhances damage', condition: 'against flammable targets' }
+      { type: 'Damage', value: 4, description: 'Base weapon damage with fire enhancement' }
     ],
     abilities: [
       {
@@ -99,6 +113,7 @@ const itemData = [
     name: 'Leather Armor',
     description: 'Supple leather armor that provides protection without restricting movement.',
     category: 'Armor',
+    slotType: 'chest',
     subtype: 'Light Armor',
     rarity: 'Common',
     baseValue: 15,
@@ -106,6 +121,9 @@ const itemData = [
     equipSlot: 'Chest',
     armorClass: 2,
     armorType: 'Light',
+    bonuses: [
+      { type: 'AC', value: 2, description: 'Armor class bonus' }
+    ],
     tags: ['armor', 'light', 'leather', 'flexible']
   },
   
@@ -113,6 +131,7 @@ const itemData = [
     name: 'Chain Mail',
     description: 'Interlocking metal rings provide solid protection against slashing attacks.',
     category: 'Armor',
+    slotType: 'chest',
     subtype: 'Medium Armor',
     rarity: 'Common',
     baseValue: 50,
@@ -124,6 +143,7 @@ const itemData = [
       { type: 'STR', value: 3, description: 'Requires strength to wear without penalty' }
     ],
     bonuses: [
+      { type: 'AC', value: 4, description: 'Armor class bonus' },
       { type: 'Speed', value: -5, description: 'Heavy armor reduces movement speed' }
     ],
     tags: ['armor', 'medium', 'metal', 'chain']
@@ -133,6 +153,7 @@ const itemData = [
     name: 'Dwarven Plate',
     description: 'Masterfully crafted plate armor bearing the runes of dwarven smiths.',
     category: 'Armor',
+    slotType: 'chest',
     subtype: 'Heavy Armor',
     rarity: 'Rare',
     baseValue: 300,
@@ -144,6 +165,7 @@ const itemData = [
       { type: 'STR', value: 5, description: 'Requires exceptional strength to wear' }
     ],
     bonuses: [
+      { type: 'AC', value: 7, description: 'Armor class bonus' },
       { type: 'Speed', value: -5, description: 'Heavy armor reduces movement speed' },
       { type: 'STR', value: 1, description: 'Dwarven craftsmanship enhances strength', condition: 'when worn' }
     ],
@@ -168,6 +190,8 @@ const itemData = [
     name: 'Iron Shield',
     description: 'A sturdy round shield made of iron-reinforced wood.',
     category: 'Shield',
+    slotType: 'offHand',
+    weaponHandling: 'off-hand-only',
     rarity: 'Common',
     baseValue: 20,
     weight: 4,

@@ -1,79 +1,12 @@
 const mongoose = require('mongoose');
 
 /**
- * Character data model for RPG character sheet using Mongoose
+ * Character Sheet data model for RPG characters using Mongoose
+ * Features level-based progression, stat calculations, and ability access
  */
 
-// Sub-schemas for nested objects
-const BonusSchema = new mongoose.Schema({
-  type: { type: String, required: true, trim: true },
-  value: { type: Number, required: true },
-  description: { type: String, default: '', trim: true }
-}, { _id: false });
-
-const AbilitySchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
-  description: { type: String, default: '', trim: true },
-  source: { type: String, default: '', trim: true }, // e.g., 'class', 'subclass', 'origin', 'racial'
-  level: { type: Number, required: true },
-}, { _id: false });
-
-// Race reference - ObjectId + selected subrace name (character-specific data)
-const RaceRefSchema = new mongoose.Schema({
-  raceId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Race', 
-    required: true 
-  },
-  subraceName: { type: String, default: '', trim: true } // Selected subrace (if any)
-}, { _id: false });
-
-// Simplified Character Spell Schema - only reference to spell and character-specific properties
-const CharacterSpellSchema = new mongoose.Schema({
-  spellId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Spell',
-    required: true
-  },
-  isKnown: { type: Boolean, default: true }, // Whether the character knows this spell
-  isPrepared: { type: Boolean, default: false }, // Whether the spell is prepared for use
-  source: { 
-    type: String, 
-    enum: ['class', 'subclass', 'item', 'learned', 'racial'],
-    default: 'learned'
-  }, // How the character acquired this spell
-  notes: { type: String, default: '', trim: true } // Character-specific notes about the spell
-}, { _id: false });
-
-const SubclassSchema = new mongoose.Schema({
-  name: { type: String, default: '', trim: true },
-  bonuses: [BonusSchema],
-  abilities: [AbilitySchema] // Changed to use AbilitySchema
-}, { _id: false });
-
-
-
-const StatsSchema = new mongoose.Schema({
-  str: { type: Number, required: true, min: 1, max: 6, default: 1 },
-  dex: { type: Number, required: true, min: 1, max: 6, default: 1 },
-  int: { type: Number, required: true, min: 1, max: 6, default: 1 },
-  cha: { type: Number, required: true, min: 1, max: 6, default: 1 },
-}, { _id: false });
-
-const ArmorSchema = new mongoose.Schema({
-  name: { type: String, default: '', trim: true },
-  acBonus: { type: Number, default: 0, min: 0 }
-}, { _id: false });
-
-const ItemSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
-  description: { type: String, default: '', trim: true },
-  quantity: { type: Number, default: 1, min: 1 },
-  value: { type: Number, default: 0, min: 0 }
-}, { _id: false });
-
-// Skills Schema - organized by ability scores
-const SkillSchema = new mongoose.Schema({
+// Schema for character skills
+const CharacterSkillsSchema = new mongoose.Schema({
   // Strength-based skills
   heavyWeapons: { type: Boolean, default: false },
   muscle: { type: Boolean, default: false },
@@ -101,6 +34,110 @@ const SkillSchema = new mongoose.Schema({
   insight: { type: Boolean, default: false }
 }, { _id: false });
 
+// Schema for character stats
+const CharacterStatsSchema = new mongoose.Schema({
+  str: { 
+    type: Number, 
+    required: true, 
+    min: 1, 
+    max: 10, 
+    default: 1 
+  },
+  dex: { 
+    type: Number, 
+    required: true, 
+    min: 1, 
+    max: 10, 
+    default: 1 
+  },
+  int: { 
+    type: Number, 
+    required: true, 
+    min: 1, 
+    max: 10, 
+    default: 1 
+  },
+  cha: { 
+    type: Number, 
+    required: true, 
+    min: 1, 
+    max: 10, 
+    default: 1 
+  }
+}, { _id: false });
+
+// Schema for character items (simplified reference)
+const CharacterItemSchema = new mongoose.Schema({
+  item: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    required: true
+  },
+  quantity: {
+    type: Number,
+    default: 1,
+    min: 1
+  },
+  equipped: {
+    type: Boolean,
+    default: false
+  }
+}, { _id: false });
+
+// Schema for equipped slots
+const EquippedSlotsSchema = new mongoose.Schema({
+  mainHand: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  offHand: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  chest: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  boots: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  gloves: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  headgear: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  cape: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  necklace: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  ring: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
+  other: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  }
+}, { _id: false });
+
 // Main Character Schema
 const CharacterSchema = new mongoose.Schema({
   name: { 
@@ -110,748 +147,549 @@ const CharacterSchema = new mongoose.Schema({
     maxlength: [100, 'Character name cannot exceed 100 characters']
   },
   
-  // Basic character info
-  race: { 
-    type: RaceRefSchema, 
-    required: true 
+  // References to other models
+  race: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Race',
+    required: [true, 'Character race is required']
   },
   
-  class: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  class: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Class',
-    required: true 
+    required: [true, 'Character class is required']
   },
   
-  subclass: { 
-    type: SubclassSchema, 
-    default: () => ({}) 
-  },
-  
-  origin: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  origin: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Origin',
-    required: true 
+    required: [true, 'Character origin is required']
   },
   
-  // Extra skills beyond class/origin
-  extraSkills: [{ type: String, trim: true }],
-  
-  // Character skills with proficiency tracking
-  skills: { 
-    type: SkillSchema, 
-    default: () => ({}) 
+  subclass: {
+    type: String,
+    default: null,
+    trim: true
   },
   
-  // Character stats
-  stats: { 
-    type: StatsSchema, 
+  spells: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Spell'
+  }],
+  
+  items: [CharacterItemSchema],
+  
+  // Equipment slots for equipped items
+  equippedSlots: {
+    type: EquippedSlotsSchema,
+    default: () => ({})
+  },
+  
+  // Character progression
+  level: { 
+    type: Number, 
+    required: true,
+    min: 1,
+    max: 10,
+    default: 1
+  },
+  
+  experience: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  
+  // Core stats
+  stats: {
+    type: CharacterStatsSchema,
     required: true,
     default: () => ({})
   },
   
-  // Character level
-  level: {
-    type: Number,
-    required: true,
-    min: [1, 'Level must be at least 1'],
-    max: [10, 'Level cannot exceed 10'],
-    default: 1
-  },
-  
-  // Combat stats
+  // Health and resources
   hp: { 
     type: Number, 
-    required: true, 
-    min: [1, 'HP must be at least 1'], 
-    default: 10 
+    min: 1
   },
+  
   maxHp: { 
     type: Number, 
-    required: true, 
-    min: [1, 'Max HP must be at least 1'], 
-    default: 10 
+    min: 1
   },
-  ac: { 
-    type: Number, 
-    required: true, 
-    min: [1, 'AC must be at least 1'], 
-    default: 10 
-  },
+  
   mana: { 
     type: Number, 
-    default: null,
-    min: 0
-  },
-  maxMana: {
-    type: Number,
-    default: null,
-    min: 0
+    default: null
   },
   
-  // Movement speed
-  baseSpeed: {
-    type: Number,
-    default: 30,
-    min: [0, 'Base speed cannot be negative']
+  maxMana: { 
+    type: Number, 
+    default: null
   },
+  
+  // Armor Class
+  baseAC: { 
+    type: Number, 
+    required: true,
+    default: 10
+  },
+  
+  // Speed
+  baseSpeed: { 
+    type: Number, 
+    required: true,
+    default: 30
+  },
+  
   speedModifiers: [{
-    type: { type: String, required: true, trim: true }, // e.g., 'armor', 'spell', 'racial', 'item'
-    value: { type: Number, required: true }, // positive or negative modifier
-    source: { type: String, default: '', trim: true }, // description of the source
-    description: { type: String, default: '', trim: true }
+    source: { type: String, required: true },
+    value: { type: Number, required: true },
+    description: { type: String, default: '' }
   }],
   
-  // Spell system
-  spells: [CharacterSpellSchema],
-  spellcastingAbility: {
-    type: String,
-    enum: ['str', 'dex', 'int', 'cha', ''],
-    default: ''
+  // Skills and proficiencies
+  skills: {
+    type: CharacterSkillsSchema,
+    required: true,
+    default: () => ({})
   },
+  
+  extraSkills: [{
+    type: String,
+    enum: [
+      'heavyWeapons', 'muscle', 'athletics', 'endurance',
+      'lightWeapons', 'rangedWeapons', 'stealth', 'acrobatics', 'legerdemain',
+      'negotiation', 'deception', 'intimidation', 'seduction',
+      'arcana', 'lore', 'investigation', 'nature', 'insight'
+    ]
+  }],
   
   // Equipment
-  armor: { 
-    type: ArmorSchema, 
-    default: () => ({}) 
-  },
+  // Note: AC is now calculated from equipped items, no separate armor field needed
   
-  items: [ItemSchema],
-  
-  // Currency (MKS - Mad King Shillings)
-  currency: { 
-    type: Number, 
-    default: 0,
-    min: [0, 'Currency cannot be negative']
-  },
-  
-  // Character backstory
-  backstory: { 
-    type: String, 
+  // Character background
+  backstory: {
+    type: String,
     default: '',
+    trim: true,
     maxlength: [5000, 'Backstory cannot exceed 5000 characters']
+  },
+  
+  // Currency
+  currency: {
+    type: Number,
+    default: 0,
+    min: 0
   }
+  
 }, {
-  timestamps: true, // Automatically adds createdAt and updatedAt
-  versionKey: false, // Remove __v field
-  toJSON: { virtuals: true }, // Include virtuals in JSON output
+  timestamps: true,
+  versionKey: false,
+  toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
-// Virtual fields for computed properties
+
+// Virtual fields for calculated values
 CharacterSchema.virtual('statModifiers').get(function() {
   return {
-    str: Math.floor((this.stats.str - 10) / 2),
-    dex: Math.floor((this.stats.dex - 10) / 2),
-    int: Math.floor((this.stats.int - 10) / 2),
-    cha: Math.floor((this.stats.cha - 10) / 2)
+    str: this.stats.str, // 1=+1, 2=+2, 3=+3, etc.
+    dex: this.stats.dex,
+    int: this.stats.int,
+    cha: this.stats.cha
   };
 });
 
-CharacterSchema.virtual('allSkills').get(function() {
-  const classSkills = this.populated('class') && this.class?.skills 
-    ? this.class.skills 
-    : [];
-  const originSkills = this.populated('origin') && this.origin?.skills 
-    ? this.origin.skills 
-    : [];
-  const raceSkills = this.populated('race.raceId') && this.race?.raceId?.skills 
-    ? this.race.raceId.skills 
-    : [];
-  const subraceSkills = this.populated('race.raceId') && this.race?.raceId && this.race.subraceName && this.race.raceId.getAllSkills
-    ? this.race.raceId.getAllSkills(this.race.subraceName) 
-    : [];
-  const extraSkills = this.extraSkills || [];
-  
-  return [...new Set([...classSkills, ...originSkills, ...raceSkills, ...subraceSkills, ...extraSkills])];
-});
-
-CharacterSchema.virtual('allAbilities').get(function() {
-  const raceAbilities = this.populated('race.raceId') && this.race?.raceId?.abilities 
-    ? this.race.raceId.abilities.map(ability => ({ ...ability.toObject(), source: 'race' }))
-    : [];
-  
-  const subraceAbilities = this.populated('race.raceId') && this.race?.raceId && this.race.subraceName && this.race.raceId.getSubrace
-    ? this.race.raceId.getSubrace(this.race.subraceName)?.abilities?.map(ability => ({ ...ability.toObject(), source: 'subrace' })) || []
-    : [];
-  
-  const classAbilities = this.populated('class') && this.class?.abilities 
-    ? this.class.abilities.map(ability => ({ ...ability.toObject(), source: 'class' }))
-    : [];
-  
-  const subclassAbilities = this.subclass && this.subclass.abilities 
-    ? this.subclass.abilities.map(ability => ({ ...ability.toObject(), source: 'subclass' }))
-    : [];
-  
-  const originAbilities = this.populated('origin') && this.origin?.abilities 
-    ? this.origin.abilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
-    : [];
-  
-  return [
-    ...raceAbilities,
-    ...subraceAbilities,
-    ...classAbilities,
-    ...subclassAbilities,
-    ...originAbilities
-  ];
+CharacterSchema.virtual('proficiencyBonus').get(function() {
+  return Math.ceil(this.level / 2) + 1; // Level 1-2: +2, 3-4: +3, 5-6: +4, 7-8: +5, 9-10: +6
 });
 
 CharacterSchema.virtual('totalAC').get(function() {
-  const armorBonus = this.armor?.acBonus || 0;
-  let classACBonus = 0;
+  let totalAC = this.baseAC;
   
-  if (this.populated('class') && this.class?.bonuses) {
-    const acBonus = this.class.bonuses.find(b => b.type === 'AC');
-    classACBonus = acBonus ? acBonus.value : 0;
-  }
+  // Add AC bonuses from equipped items via equipped slots
+  const slotTypes = ['mainHand', 'offHand', 'chest', 'boots', 'gloves', 'headgear', 'cape', 'necklace', 'ring', 'other'];
   
-  return this.ac + armorBonus + classACBonus;
-});
-
-CharacterSchema.virtual('totalSpeed').get(function() {
-  const speedModifierSum = this.speedModifiers.reduce((sum, modifier) => sum + modifier.value, 0);
-  return Math.max(0, this.baseSpeed + speedModifierSum); // Speed cannot be negative
-});
-
-// Skills-related virtual fields
-CharacterSchema.virtual('proficientSkills').get(function() {
-  const proficient = [];
-  const skillMap = {
-    // Strength-based skills
-    heavyWeapons: 'str',
-    muscle: 'str',
-    athletics: 'str',
-    endurance: 'str',
-    // Dexterity-based skills
-    lightWeapons: 'dex',
-    rangedWeapons: 'dex',
-    stealth: 'dex',
-    acrobatics: 'dex',
-    legerdemain: 'dex',
-    // Charisma-based skills
-    negotiation: 'cha',
-    deception: 'cha',
-    intimidation: 'cha',
-    seduction: 'cha',
-    // Intelligence-based skills
-    arcana: 'int',
-    lore: 'int',
-    investigation: 'int',
-    nature: 'int',
-    insight: 'int'
-  };
-  
-  for (const [skill, ability] of Object.entries(skillMap)) {
-    if (this.skills[skill]) {
-      proficient.push({ skill, ability });
-    }
-  }
-  
-  return proficient;
-});
-
-CharacterSchema.virtual('skillsByStats').get(function() {
-  return {
-    str: {
-      heavyWeapons: this.skills.heavyWeapons,
-      muscle: this.skills.muscle,
-      athletics: this.skills.athletics,
-      endurance: this.skills.endurance
-    },
-    dex: {
-      lightWeapons: this.skills.lightWeapons,
-      rangedWeapons: this.skills.rangedWeapons,
-      stealth: this.skills.stealth,
-      acrobatics: this.skills.acrobatics,
-      legerdemain: this.skills.legerdemain
-    },
-    cha: {
-      negotiation: this.skills.negotiation,
-      deception: this.skills.deception,
-      intimidation: this.skills.intimidation,
-      seduction: this.skills.seduction
-    },
-    int: {
-      arcana: this.skills.arcana,
-      lore: this.skills.lore,
-      investigation: this.skills.investigation,
-      nature: this.skills.nature,
-      insight: this.skills.insight
-    }
-  };
-});
-
-// Spell-related virtual fields
-CharacterSchema.virtual('knownSpells').get(function() {
-  return this.spells.filter(spell => spell.isKnown);
-});
-
-CharacterSchema.virtual('preparedSpells').get(function() {
-  return this.spells.filter(spell => spell.isPrepared);
-});
-
-CharacterSchema.virtual('spellsByCircle').get(function() {
-  const spellsByCircle = {
-    1: [],
-    2: [],
-    3: [],
-    4: [],
-    5: []
-  };
-  
-  this.spells.forEach(spell => {
-    if (this.populated('spells.spellId') && spell.spellId && spell.spellId.circle) {
-      const circle = spell.spellId.circle;
-      if (spellsByCircle[circle]) {
-        spellsByCircle[circle].push(spell);
-      }
+  slotTypes.forEach(slotType => {
+    const equippedItem = this.equippedSlots?.[slotType];
+    if (equippedItem && equippedItem.bonuses && Array.isArray(equippedItem.bonuses)) {
+      equippedItem.bonuses.forEach(bonus => {
+        if (bonus.type === 'AC') {
+          totalAC += bonus.value;
+        }
+      });
     }
   });
   
-  return spellsByCircle;
+  return totalAC;
 });
 
-CharacterSchema.virtual('spellcastingModifier').get(function() {
-  if (!this.spellcastingAbility || !this.stats[this.spellcastingAbility]) {
-    return 0;
-  }
-  return this.getStatModifier(this.stats[this.spellcastingAbility]);
+CharacterSchema.virtual('totalSpeed').get(function() {
+  const modifiers = this.speedModifiers.reduce((total, mod) => total + mod.value, 0);
+  return this.baseSpeed + modifiers;
 });
 
 // Instance methods
-CharacterSchema.methods.getStatModifier = function(statValue) {
-  return Math.floor((statValue - 10) / 2);
+CharacterSchema.methods.getStatModifier = function(statName) {
+  const statValue = this.stats[statName];
+  if (!statValue) return 0;
+  return statValue; // 1=+1, 2=+2, 3=+3, etc.
 };
 
-CharacterSchema.methods.getStatModifiers = function() {
-  return {
-    str: this.getStatModifier(this.stats.str),
-    dex: this.getStatModifier(this.stats.dex),
-    int: this.getStatModifier(this.stats.int),
-    cha: this.getStatModifier(this.stats.cha)
-  };
-};
-
-CharacterSchema.methods.getAllSkills = function() {
-  const classSkills = this.populated('class') && this.class?.skills 
-    ? this.class.skills 
-    : [];
-  const originSkills = this.populated('origin') && this.origin?.skills 
-    ? this.origin.skills 
-    : [];
-  const raceSkills = this.populated('race.raceId') && this.race?.raceId?.skills 
-    ? this.race.raceId.skills 
-    : [];
-  const subraceSkills = this.populated('race.raceId') && this.race?.raceId && this.race.subraceName && this.race.raceId.getAllSkills
-    ? this.race.raceId.getAllSkills(this.race.subraceName) 
-    : [];
-  const extraSkills = this.extraSkills || [];
-  
-  return [...new Set([...classSkills, ...originSkills, ...raceSkills, ...subraceSkills, ...extraSkills])];
-};
-
-CharacterSchema.methods.getAllAbilities = function() {
-  const raceAbilities = this.populated('race.raceId') && this.race?.raceId?.abilities 
-    ? this.race.raceId.abilities.map(ability => ({ ...ability.toObject(), source: 'race' }))
-    : [];
-  
-  const subraceAbilities = this.populated('race.raceId') && this.race?.raceId && this.race.subraceName && this.race.raceId.getSubrace
-    ? this.race.raceId.getSubrace(this.race.subraceName)?.abilities?.map(ability => ({ ...ability.toObject(), source: 'subrace' })) || []
-    : [];
-  
-  const classAbilities = this.populated('class') && this.class?.abilities 
-    ? this.class.abilities.map(ability => ({ ...ability.toObject(), source: 'class' }))
-    : [];
-  
-  const subclassAbilities = this.subclass && this.subclass.abilities 
-    ? this.subclass.abilities.map(ability => ({ ...ability.toObject(), source: 'subclass' }))
-    : [];
-  
-  const originAbilities = this.populated('origin') && this.origin?.abilities 
-    ? this.origin.abilities.map(ability => ({ ...ability.toObject(), source: 'origin' }))
-    : [];
-  
-  return [
-    ...raceAbilities,
-    ...subraceAbilities,
-    ...classAbilities,
-    ...subclassAbilities,
-    ...originAbilities
-  ];
-};
-
-CharacterSchema.methods.getTotalAC = function() {
-  const armorBonus = this.armor?.acBonus || 0;
-  let classACBonus = 0;
-  
-  if (this.populated('class') && this.class?.bonuses) {
-    const acBonus = this.class.bonuses.find(b => b.type === 'AC');
-    classACBonus = acBonus ? acBonus.value : 0;
-  }
-  
-  return this.ac + armorBonus + classACBonus;
-};
-
-// Skills-related instance methods
 CharacterSchema.methods.hasSkillProficiency = function(skillName) {
-  return this.skills[skillName] === true;
-};
-
-CharacterSchema.methods.setSkillProficiency = function(skillName, proficient = true) {
-  const validSkills = [
-    'heavyWeapons', 'muscle', 'athletics', 'endurance',
-    'lightWeapons', 'rangedWeapons', 'stealth', 'acrobatics', 'legerdemain',
-    'negotiation', 'deception', 'intimidation', 'seduction',
-    'arcana', 'lore', 'investigation', 'nature', 'insight'
-  ];
-  
-  if (!validSkills.includes(skillName)) {
-    throw new Error(`Invalid skill name: ${skillName}`);
-  }
-  
-  this.skills[skillName] = proficient;
-  return this;
+  return this.skills[skillName] || this.extraSkills.includes(skillName);
 };
 
 CharacterSchema.methods.getSkillModifier = function(skillName) {
-  const skillAbilityMap = {
+  // Map skills to their governing stats
+  const skillStatMap = {
+    // Strength skills
     heavyWeapons: 'str', muscle: 'str', athletics: 'str', endurance: 'str',
+    // Dexterity skills  
     lightWeapons: 'dex', rangedWeapons: 'dex', stealth: 'dex', acrobatics: 'dex', legerdemain: 'dex',
+    // Charisma skills
     negotiation: 'cha', deception: 'cha', intimidation: 'cha', seduction: 'cha',
+    // Intelligence skills
     arcana: 'int', lore: 'int', investigation: 'int', nature: 'int', insight: 'int'
   };
   
-  const abilityScore = skillAbilityMap[skillName];
-  if (!abilityScore) {
-    throw new Error(`Invalid skill name: ${skillName}`);
+  const governingStat = skillStatMap[skillName];
+  if (!governingStat) return 0;
+  
+  const statModifier = this.getStatModifier(governingStat);
+  const proficiencyBonus = this.hasSkillProficiency(skillName) ? this.proficiencyBonus : 0;
+  
+  return statModifier + proficiencyBonus;
+};
+
+CharacterSchema.methods.calculateTotalAC = async function() {
+  let totalAC = this.baseAC;
+  
+  // Populate equipped slots if not already populated
+  const slotTypes = ['mainHand', 'offHand', 'chest', 'boots', 'gloves', 'headgear', 'cape', 'necklace', 'ring', 'other'];
+  const needsPopulation = slotTypes.some(slotType => {
+    const equippedItem = this.equippedSlots?.[slotType];
+    return equippedItem && !equippedItem.bonuses;
+  });
+  
+  if (needsPopulation) {
+    try {
+      await this.populate(slotTypes.map(slot => `equippedSlots.${slot}`));
+    } catch (error) {
+      console.warn('Could not populate equipped slots:', error.message);
+    }
   }
   
-  const baseModifier = this.getStatModifier(this.stats[abilityScore]);
-  const proficiencyBonus = this.hasSkillProficiency(skillName) ? 2 : 0; // Standard proficiency bonus
+  // Add AC bonuses from equipped items
+  slotTypes.forEach(slotType => {
+    const equippedItem = this.equippedSlots?.[slotType];
+    if (equippedItem && equippedItem.bonuses && Array.isArray(equippedItem.bonuses)) {
+      equippedItem.bonuses.forEach(bonus => {
+        if (bonus.type === 'AC') {
+          totalAC += bonus.value;
+        }
+      });
+    }
+  });
   
-  return baseModifier + proficiencyBonus;
+  return totalAC;
 };
 
 CharacterSchema.methods.rollSkillCheck = function(skillName) {
+  const d20Roll = Math.floor(Math.random() * 20) + 1;
   const modifier = this.getSkillModifier(skillName);
-  const roll = Math.floor(Math.random() * 20) + 1;
-  
   return {
-    roll,
-    modifier,
-    total: roll + modifier,
+    roll: d20Roll,
+    modifier: modifier,
+    total: d20Roll + modifier,
+    skill: skillName,
     isProficient: this.hasSkillProficiency(skillName)
   };
 };
 
-CharacterSchema.methods.getProficientSkills = function() {
-  const proficient = [];
-  const skillNames = [
-    'heavyWeapons', 'muscle', 'athletics', 'endurance',
-    'lightWeapons', 'rangedWeapons', 'stealth', 'acrobatics', 'legerdemain',
-    'negotiation', 'deception', 'intimidation', 'seduction',
-    'arcana', 'lore', 'investigation', 'nature', 'insight'
-  ];
+// Method to calculate HP for current level
+CharacterSchema.methods.calculateMaxHp = async function() {
+  if (!this.class) return 10; // Base HP if no class
   
-  skillNames.forEach(skill => {
-    if (this.hasSkillProficiency(skill)) {
-      proficient.push(skill);
+  let classDoc = this.class;
+  if (typeof this.class === 'string' || this.class.constructor === mongoose.Types.ObjectId) {
+    classDoc = await mongoose.model('Class').findById(this.class);
+  }
+  
+  if (!classDoc) return 10;
+  
+  // Simple calculation: level × class HP bonus per level
+  return Math.max(1, this.level * classDoc.hpBonusPerLevel);
+};
+
+// Method to calculate Mana for current level
+CharacterSchema.methods.calculateMaxMana = async function() {
+  if (!this.class) return null;
+  
+  let classDoc = this.class;
+  if (typeof this.class === 'string' || this.class.constructor === mongoose.Types.ObjectId) {
+    classDoc = await mongoose.model('Class').findById(this.class);
+  }
+  
+  if (!classDoc || classDoc.manaBonusPerLevel === 0) return null;
+  
+  // Simple calculation: level × class mana bonus per level
+  return Math.max(0, this.level * classDoc.manaBonusPerLevel);
+};
+
+// Method to get available spells for current level
+CharacterSchema.methods.getAvailableSpells = async function() {
+  await this.populate('spells');
+  
+  if (!this.spells || this.spells.length === 0) return [];
+  
+  // Filter spells by character's available spell circles based on level
+  const maxSpellCircle = Math.min(5, Math.ceil(this.level / 2)); // Level 1-2: Circle 1, 3-4: Circle 2, etc.
+  
+  return this.spells.filter(spell => spell.circle <= maxSpellCircle);
+};
+
+// Method to get available abilities for current level
+CharacterSchema.methods.getAvailableAbilities = async function() {
+  await this.populate(['class', 'race', 'origin']);
+  
+  const abilities = [];
+  
+  // Class abilities (odd levels)
+  if (this.class && this.class.abilities) {
+    const classAbilities = this.class.abilities.filter(ability => 
+      ability.level <= this.level && ability.level % 2 === 1
+    ).map(ability => ({
+      ...ability.toObject(),
+      source: 'class'
+    }));
+    abilities.push(...classAbilities);
+  }
+  
+  // Subclass abilities (even levels)
+  if (this.class && this.subclass && this.class.subclasses) {
+    const subclassData = this.class.subclasses.find(sc => sc.name === this.subclass);
+    if (subclassData && subclassData.abilities) {
+      const subclassAbilities = subclassData.abilities.filter(ability => 
+        ability.level <= this.level && ability.level % 2 === 0
+      ).map(ability => ({
+        ...ability.toObject(),
+        source: 'subclass'
+      }));
+      abilities.push(...subclassAbilities);
     }
-  });
-  
-  return proficient;
-};
-
-CharacterSchema.methods.getSkillsByAbility = function(abilityScore) {
-  const abilitySkills = {
-    str: ['heavyWeapons', 'muscle', 'athletics', 'endurance'],
-    dex: ['lightWeapons', 'rangedWeapons', 'stealth', 'acrobatics', 'legerdemain'],
-    cha: ['negotiation', 'deception', 'intimidation', 'seduction'],
-    int: ['arcana', 'lore', 'investigation', 'nature', 'insight']
-  };
-  
-  const skillList = abilitySkills[abilityScore];
-  if (!skillList) {
-    throw new Error(`Invalid ability score: ${abilityScore}`);
   }
   
-  return skillList.map(skill => ({
-    name: skill,
-    proficient: this.hasSkillProficiency(skill),
-    modifier: this.getSkillModifier(skill)
-  }));
-};
-
-// Spell-related instance methods
-CharacterSchema.methods.addSpell = function(spellData) {
-  // Check if spell already exists
-  const existingSpell = this.spells.find(spell => 
-    spell.spellId.toString() === spellData.spellId.toString()
-  );
-  
-  if (existingSpell) {
-    throw new Error('Spell already known');
+  // Racial abilities
+  if (this.race && this.race.abilities) {
+    const racialAbilities = this.race.abilities.filter(ability => 
+      ability.level <= this.level
+    ).map(ability => ({
+      ...ability.toObject(),
+      source: 'race'
+    }));
+    abilities.push(...racialAbilities);
   }
   
-  this.spells.push(spellData);
-  return this;
-};
-
-CharacterSchema.methods.removeSpell = function(spellId) {
-  const index = this.spells.findIndex(spell => 
-    spell.spellId.toString() === spellId.toString()
-  );
-  
-  if (index === -1) {
-    throw new Error('Spell not found');
+  // Origin abilities
+  if (this.origin && this.origin.abilities) {
+    const originAbilities = this.origin.abilities.filter(ability => 
+      ability.level <= this.level
+    ).map(ability => ({
+      ...ability.toObject(),
+      source: 'origin'
+    }));
+    abilities.push(...originAbilities);
   }
   
-  this.spells.splice(index, 1);
-  return this;
-};
-
-CharacterSchema.methods.prepareSpell = function(spellId) {
-  const spell = this.spells.find(spell => 
-    spell.spellId.toString() === spellId.toString()
-  );
-  
-  if (!spell) {
-    throw new Error('Spell not known');
-  }
-  
-  if (!spell.isKnown) {
-    throw new Error('Cannot prepare unknown spell');
-  }
-  
-  spell.isPrepared = true;
-  return this;
-};
-
-CharacterSchema.methods.unprepareSpell = function(spellId) {
-  const spell = this.spells.find(spell => 
-    spell.spellId.toString() === spellId.toString()
-  );
-  
-  if (!spell) {
-    throw new Error('Spell not found');
-  }
-  
-  spell.isPrepared = false;
-  return this;
-};
-
-CharacterSchema.methods.canCastSpell = function(spellId) {
-  const spell = this.spells.find(spell => 
-    spell.spellId.toString() === spellId.toString()
-  );
-  
-  if (!spell || !spell.isKnown || !spell.isPrepared) {
-    return { canCast: false, reason: 'Spell not prepared' };
-  }
-  
-  // Get mana cost from populated spell data
-  let manaCost = 0;
-  if (this.populated('spells.spellId') && spell.spellId) {
-    const populatedSpell = spell.spellId;
-    manaCost = populatedSpell.manaCost || 0;
-  }
-  
-  if (this.mana === null || this.mana < manaCost) {
-    return { canCast: false, reason: 'Insufficient mana' };
-  }
-  
-  return { canCast: true };
-};
-
-CharacterSchema.methods.castSpell = function(spellId) {
-  const castCheck = this.canCastSpell(spellId);
-  if (!castCheck.canCast) {
-    throw new Error(castCheck.reason);
-  }
-  
-  const spell = this.spells.find(spell => 
-    spell.spellId.toString() === spellId.toString()
-  );
-  
-  // Get mana cost from populated spell data
-  let manaCost = 0;
-  if (this.populated('spells.spellId') && spell.spellId) {
-    const populatedSpell = spell.spellId;
-    manaCost = populatedSpell.manaCost || 0;
-  }
-  
-  this.mana -= manaCost;
-  return {
-    spell: spell,
-    remainingMana: this.mana
-  };
-};
-
-CharacterSchema.methods.getSpellsByCircle = function(circle) {
-  return this.spells.filter(spell => {
-    if (this.populated('spells.spellId') && spell.spellId) {
-      return spell.spellId.circle === circle;
-    }
-    return false; // If not populated, we can't determine the circle
+  // Sort by level, then by source
+  return abilities.sort((a, b) => {
+    if (a.level !== b.level) return a.level - b.level;
+    const sourceOrder = { race: 1, origin: 2, class: 3, subclass: 4 };
+    return sourceOrder[a.source] - sourceOrder[b.source];
   });
 };
 
-CharacterSchema.methods.getKnownSpells = function() {
-  return this.spells.filter(spell => spell.isKnown);
-};
-
-CharacterSchema.methods.getPreparedSpells = function() {
-  return this.spells.filter(spell => spell.isPrepared);
-};
-
-CharacterSchema.methods.getSpellcastingModifier = function() {
-  if (!this.spellcastingAbility || !this.stats[this.spellcastingAbility]) {
-    return 0;
+// Method to level up character
+CharacterSchema.methods.levelUp = async function() {
+  if (this.level >= 10) {
+    throw new Error('Character is already at maximum level (10)');
   }
-  return this.getStatModifier(this.stats[this.spellcastingAbility]);
-};
-
-CharacterSchema.methods.getSpellAttackBonus = function() {
-  const proficiencyBonus = 2; // Standard proficiency bonus (could be level-based)
-  return this.getSpellcastingModifier() + proficiencyBonus;
-};
-
-CharacterSchema.methods.getSpellSaveDC = function() {
-  const baseDC = 8;
-  const proficiencyBonus = 2; // Standard proficiency bonus (could be level-based)
-  return baseDC + proficiencyBonus + this.getSpellcastingModifier();
-};
-
-// Speed-related instance methods
-CharacterSchema.methods.getTotalSpeed = function() {
-  const speedModifierSum = this.speedModifiers.reduce((sum, modifier) => sum + modifier.value, 0);
-  return Math.max(0, this.baseSpeed + speedModifierSum); // Speed cannot be negative
-};
-
-CharacterSchema.methods.addSpeedModifier = function(modifierData) {
-  // Check if a modifier with the same type and source already exists
-  const existingModifier = this.speedModifiers.find(modifier => 
-    modifier.type === modifierData.type && modifier.source === modifierData.source
-  );
   
-  if (existingModifier) {
-    // Update the existing modifier
-    existingModifier.value = modifierData.value;
-    existingModifier.description = modifierData.description || existingModifier.description;
+  this.level += 1;
+  
+  // Recalculate HP and Mana
+  this.maxHp = await this.calculateMaxHp();
+  this.hp = Math.min(this.hp + 5, this.maxHp); // Gain some HP on level up but don't exceed max
+  
+  const newMaxMana = await this.calculateMaxMana();
+  if (newMaxMana !== null) {
+    this.maxMana = newMaxMana;
+    this.mana = Math.min((this.mana || 0) + Math.ceil(newMaxMana / 10), this.maxMana);
+  }
+  
+  return this;
+};
+
+// Method to equip an item
+CharacterSchema.methods.equipItem = async function(itemId, preferredSlot = null) {
+  // Find the item in character's inventory
+  const inventoryItem = this.items.find(item => item.item.toString() === itemId.toString());
+  if (!inventoryItem) {
+    throw new Error('Item not found in character inventory');
+  }
+  
+  // Get the item details
+  let itemDoc = inventoryItem.item;
+  if (typeof itemDoc === 'string' || itemDoc.constructor === mongoose.Types.ObjectId) {
+    itemDoc = await mongoose.model('Item').findById(itemDoc);
+  }
+  
+  if (!itemDoc) {
+    throw new Error('Item not found');
+  }
+  
+  // Check if item has a slot type (is equipable)
+  if (!itemDoc.slotType) {
+    throw new Error('Item is not equipable');
+  }
+  
+  // Get weapon hand requirements
+  const handReq = itemDoc.getHandRequirement();
+  let slotsToEquip = [];
+  
+  // Determine which slot(s) to use
+  if (itemDoc.category === 'Weapon' || itemDoc.category === 'Shield') {
+    if (handReq.hands === 2) {
+      // Two-handed weapon - needs both hands
+      slotsToEquip = ['mainHand', 'offHand'];
+      
+      // Check if both hands are available or can be cleared
+      if (this.equippedSlots.mainHand) {
+        await this.unequipItem(this.equippedSlots.mainHand);
+      }
+      if (this.equippedSlots.offHand) {
+        await this.unequipItem(this.equippedSlots.offHand);
+      }
+      
+      // Equip in main hand (the off-hand slot will point to the same item for two-handed weapons)
+      this.equippedSlots.mainHand = itemDoc._id;
+      this.equippedSlots.offHand = itemDoc._id;
+      
+    } else if (handReq.canMainHand && handReq.canOffHand) {
+      // One-handed weapon - can go in either slot, prefer specified slot or main hand
+      const targetSlot = preferredSlot && ['mainHand', 'offHand'].includes(preferredSlot) ? preferredSlot : 'mainHand';
+      
+      if (this.equippedSlots[targetSlot]) {
+        await this.unequipItem(this.equippedSlots[targetSlot]);
+      }
+      
+      this.equippedSlots[targetSlot] = itemDoc._id;
+      
+    } else if (handReq.canOffHand && !handReq.canMainHand) {
+      // Off-hand only (shields, parrying daggers)
+      if (this.equippedSlots.offHand) {
+        await this.unequipItem(this.equippedSlots.offHand);
+      }
+      
+      this.equippedSlots.offHand = itemDoc._id;
+      
+    } else {
+      throw new Error('Cannot determine how to equip this weapon');
+    }
+    
   } else {
-    // Add new modifier
-    this.speedModifiers.push(modifierData);
+    // Non-weapon items use their slot type directly
+    const slotType = itemDoc.slotType;
+    
+    if (this.equippedSlots[slotType]) {
+      await this.unequipItem(this.equippedSlots[slotType]);
+    }
+    
+    this.equippedSlots[slotType] = itemDoc._id;
+  }
+  
+  inventoryItem.equipped = true;
+  
+  return this;
+};
+
+// Method to unequip an item
+CharacterSchema.methods.unequipItem = async function(itemId) {
+  // Find which slot(s) the item is in
+  const slotTypes = ['mainHand', 'offHand', 'chest', 'boots', 'gloves', 'headgear', 'cape', 'necklace', 'ring', 'other'];
+  const slotsWithItem = [];
+  
+  for (const slot of slotTypes) {
+    if (this.equippedSlots[slot] && this.equippedSlots[slot].toString() === itemId.toString()) {
+      slotsWithItem.push(slot);
+    }
+  }
+  
+  if (slotsWithItem.length === 0) {
+    throw new Error('Item is not equipped');
+  }
+  
+  // Get the item to check if it's a two-handed weapon
+  let itemDoc = await mongoose.model('Item').findById(itemId);
+  if (itemDoc && itemDoc.getHandRequirement().hands === 2) {
+    // Two-handed weapon - clear both hands
+    this.equippedSlots.mainHand = null;
+    this.equippedSlots.offHand = null;
+  } else {
+    // Remove from all slots where it's equipped
+    for (const slot of slotsWithItem) {
+      this.equippedSlots[slot] = null;
+    }
+  }
+  
+  // Update inventory item
+  const inventoryItem = this.items.find(item => item.item.toString() === itemId.toString());
+  if (inventoryItem) {
+    inventoryItem.equipped = false;
   }
   
   return this;
 };
 
-CharacterSchema.methods.removeSpeedModifier = function(type, source) {
-  const index = this.speedModifiers.findIndex(modifier => 
-    modifier.type === type && modifier.source === source
-  );
-  
-  if (index === -1) {
-    throw new Error(`Speed modifier of type '${type}' from source '${source}' not found`);
+// Pre-save middleware to calculate HP and Mana
+CharacterSchema.pre('save', async function(next) {
+  try {
+    // Always calculate maxHp and maxMana
+    this.maxHp = await this.calculateMaxHp();
+    
+    const maxMana = await this.calculateMaxMana();
+    this.maxMana = maxMana;
+    
+    // Set HP to maxHp if it's not set or if it's a new character
+    if (this.isNew || this.hp === undefined || this.hp === null) {
+      this.hp = this.maxHp;
+    } else if (this.hp > this.maxHp) {
+      this.hp = this.maxHp;
+    }
+    
+    // Set Mana if character has mana
+    if (maxMana !== null) {
+      if (this.isNew || this.mana === null || this.mana === undefined) {
+        this.mana = maxMana;
+      } else if (this.mana > maxMana) {
+        this.mana = maxMana;
+      }
+    } else {
+      this.mana = null;
+    }
+  } catch (error) {
+    return next(error);
   }
-  
-  this.speedModifiers.splice(index, 1);
-  return this;
-};
-
-CharacterSchema.methods.getSpeedModifiersByType = function(type) {
-  return this.speedModifiers.filter(modifier => modifier.type === type);
-};
-
-CharacterSchema.methods.hasSpeedModifier = function(type, source) {
-  return this.speedModifiers.some(modifier => 
-    modifier.type === type && modifier.source === source
-  );
-};
-
-CharacterSchema.methods.getSpeedBreakdown = function() {
-  return {
-    baseSpeed: this.baseSpeed,
-    modifiers: this.speedModifiers.map(modifier => ({
-      type: modifier.type,
-      value: modifier.value,
-      source: modifier.source,
-      description: modifier.description
-    })),
-    totalSpeed: this.getTotalSpeed()
-  };
-};
-
-// Pre-save middleware
-CharacterSchema.pre('save', function(next) {
-  // Ensure maxHp is at least equal to hp
-  if (this.hp > this.maxHp) {
-    this.maxHp = this.hp;
-  }
-  
-  // Ensure maxMana is at least equal to mana if both are set
-  if (this.mana !== null && this.maxMana !== null && this.mana > this.maxMana) {
-    this.maxMana = this.mana;
-  }
-  
-  // Sort spells by spellId for consistency (we can't access spell data here since it's not populated)
-  this.spells.sort((a, b) => {
-    return a.spellId.toString().localeCompare(b.spellId.toString());
-  });
-  
   next();
 });
 
-// Static methods
-CharacterSchema.statics.findByName = function(name) {
-  return this.findOne({ name: new RegExp(name, 'i') });
-};
-
-CharacterSchema.statics.findWithFullData = function(query = {}) {
-  return this.find(query)
-    .populate('class')
-    .populate('race.raceId') 
-    .populate('origin')
-    .populate('spells.spellId');
-};
-
-CharacterSchema.statics.findByOriginId = function(originId) {
-  return this.find({ origin: originId });
-};
-
-CharacterSchema.statics.findByRaceId = function(raceId) {
-  return this.find({ 'race.raceId': raceId });
-};
-
-CharacterSchema.statics.findBySpell = function(spellId) {
-  return this.find({ 'spells.spellId': spellId });
-};
-
-CharacterSchema.statics.findSpellcasters = function() {
-  return this.find({ 
-    $and: [
-      { spellcastingAbility: { $ne: '' } },
-      { 'spells.0': { $exists: true } }
-    ]
-  });
-};
-
-CharacterSchema.statics.findBySpellCircle = function(circle) {
-  return this.find({ 'spells.circle': circle });
-};
-
-CharacterSchema.statics.findByClassId = function(classId) {
-  return this.find({ class: classId });
-};
-
-// Index for faster queries
+// Indexes for better performance
 CharacterSchema.index({ name: 1 });
-CharacterSchema.index({ class: 1 });
-CharacterSchema.index({ 'race.raceId': 1 });
-CharacterSchema.index({ origin: 1 });
-CharacterSchema.index({ createdAt: -1 });
-CharacterSchema.index({ 'spells.spellId': 1 });
-CharacterSchema.index({ spellcastingAbility: 1 });
 CharacterSchema.index({ level: 1 });
-CharacterSchema.index({ baseSpeed: 1 });
+CharacterSchema.index({ class: 1 });
+CharacterSchema.index({ race: 1 });
+CharacterSchema.index({ createdAt: -1 });
 
 // Create and export the model
 const Character = mongoose.model('Character', CharacterSchema);
